@@ -5,24 +5,26 @@ import 'package:budget_analyzer/data/local_db/database_helper.dart';
 class LocalDbEvmRepositoryImpl implements IEvmRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
-  // Asumimos una cantidad presupuestada por defecto ya que el Excel
-  // proporcionado es solo un catálogo de precios unitarios.
+  // Cantidad total por defecto si no se especifica o lee en el Excel
   final double defaultTotalQuantity = 100.0;
 
   @override
-  Future<List<Map<String, dynamic>>> getApus() async {
-    final apus = await _dbHelper.getAllApus();
+  Future<List<Map<String, dynamic>>> getApus({int? projectId}) async {
+    final apus = projectId != null
+        ? await _dbHelper.getApusByProject(projectId)
+        : await _dbHelper.getAllApus();
     
     return apus.map((apu) {
-      final unitPrice = apu.costoTotal;
-      final bac = unitPrice * defaultTotalQuantity;
+      final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
+      final totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
+      final bac = unitPrice * totalQty;
 
       return {
         'id': apu.codigo, // Usamos el código como ID único
         'code': apu.codigo,
         'description': apu.nombre,
         'unit_measure': apu.unidad,
-        'total_quantity': defaultTotalQuantity,
+        'total_quantity': totalQty,
         'unit_price': unitPrice,
         'bac': bac,
       };
@@ -34,11 +36,12 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
     final apus = await _dbHelper.getAllApus();
     final apu = apus.firstWhere(
       (a) => a.codigo == apuId,
-      orElse: () => throw Exception('APU no encontrado: \$apuId'),
+      orElse: () => throw Exception('APU no encontrado: $apuId'),
     );
 
-    final double unitPrice = apu.costoTotal;
-    final double bac = unitPrice * defaultTotalQuantity;
+    final double unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
+    final double totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
+    final double bac = unitPrice * totalQty;
 
     // Obtener AC (Actual Cost) sumando salidas de almacén
     final inventoryIssues = await _dbHelper.getInventoryIssuesForApu(apuId);
@@ -47,7 +50,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
     // Obtener EV (Earned Value)
     final fieldProgress = await _dbHelper.getFieldProgressForApu(apuId);
     final double executedQuantity = fieldProgress.fold(0.0, (sum, progress) => sum + (progress['quantity'] as double));
-    final double ev = defaultTotalQuantity > 0 ? (executedQuantity / defaultTotalQuantity) * bac : 0.0;
+    final double ev = totalQty > 0 ? (executedQuantity / totalQty) * bac : 0.0;
 
     // Calcular índices
     final double cpi = ac > 0 ? ev / ac : (ev > 0 ? double.infinity : 1.0);

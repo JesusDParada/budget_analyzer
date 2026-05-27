@@ -1,9 +1,9 @@
 import 'dart:io';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'package:budget_analyzer/domain/models/project.dart';
 import 'package:budget_analyzer/domain/models/apu.dart';
 import 'package:budget_analyzer/domain/models/insumo.dart';
 
@@ -30,15 +30,16 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    const doubleType = 'REAL NOT NULL';
     const textType = 'TEXT NOT NULL';
+    const doubleType = 'REAL NOT NULL';
+    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
 
     if (oldVersion < 2) {
       await db.execute('''
@@ -63,12 +64,61 @@ CREATE TABLE IF NOT EXISTS field_progress (
 )
 ''');
     }
+
+    if (oldVersion < 3) {
+      // Recreate schema to support projects and detailed sheets
+      await db.execute('DROP TABLE IF EXISTS apu_items');
+      await db.execute('DROP TABLE IF EXISTS apus');
+      await db.execute('DROP TABLE IF EXISTS projects');
+
+      await db.execute('''
+CREATE TABLE projects (
+  id $idType,
+  name $textType UNIQUE,
+  date $textType
+)
+''');
+
+      await db.execute('''
+CREATE TABLE apus (
+  id $idType,
+  projectId INTEGER NOT NULL,
+  codigo $textType,
+  nombre $textType,
+  unidad $textType,
+  cantidad $doubleType,
+  valorUnitario $doubleType,
+  memoriaJson TEXT,
+  detalleJson TEXT,
+  FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
+)
+''');
+
+      await db.execute('''
+CREATE TABLE apu_items (
+  id $idType,
+  apuCodigo $textType,
+  insumoCodigo $textType,
+  cantidad $doubleType,
+  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE,
+  FOREIGN KEY (insumoCodigo) REFERENCES insumos (codigo) ON DELETE CASCADE
+)
+''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
     const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
     const textType = 'TEXT NOT NULL';
     const doubleType = 'REAL NOT NULL';
+
+    await db.execute('''
+CREATE TABLE projects (
+  id $idType,
+  name $textType UNIQUE,
+  date $textType
+)
+''');
 
     await db.execute('''
 CREATE TABLE insumos (
@@ -84,9 +134,15 @@ CREATE TABLE insumos (
     await db.execute('''
 CREATE TABLE apus (
   id $idType,
-  codigo $textType UNIQUE,
+  projectId INTEGER NOT NULL,
+  codigo $textType,
   nombre $textType,
-  unidad $textType
+  unidad $textType,
+  cantidad $doubleType,
+  valorUnitario $doubleType,
+  memoriaJson TEXT,
+  detalleJson TEXT,
+  FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
 )
 ''');
 
@@ -122,6 +178,23 @@ CREATE TABLE field_progress (
   FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
 )
 ''');
+  }
+
+  // --- Operaciones para Proyectos ---
+
+  Future<int> insertProject(Project project) async {
+    final db = await instance.database;
+    final maps = await db.query('projects', where: 'name = ?', whereArgs: [project.name]);
+    if (maps.isNotEmpty) {
+      return maps.first['id'] as int;
+    }
+    return await db.insert('projects', project.toMap());
+  }
+
+  Future<List<Project>> getAllProjects() async {
+    final db = await instance.database;
+    final result = await db.query('projects');
+    return result.map((json) => Project.fromMap(json)).toList();
   }
 
   // --- Operaciones para Insumos ---
@@ -163,7 +236,30 @@ CREATE TABLE field_progress (
     final db = await instance.database;
     final apuMaps = await db.query('apus');
     
-    // Para simplificar, obtenemos todos los items y los agrupamos por APU
+    final itemMaps = await db.query('apu_items');
+    final insumos = await getAllInsumos();
+    final insumoMap = {for (var i in insumos) i.codigo: i};
+
+    List<Apu> result = [];
+    for (var apuMap in apuMaps) {
+      final apuCodigo = apuMap['codigo'] as String;
+      
+      final apuItemsMaps = itemMaps.where((i) => i['apuCodigo'] == apuCodigo);
+      final List<ApuItem> items = apuItemsMaps.map((map) {
+        final insumo = insumoMap[map['insumoCodigo']];
+        return ApuItem.fromMap(map, insumo: insumo);
+      }).toList();
+
+      result.add(Apu.fromMap(apuMap, items: items));
+    }
+
+    return result;
+  }
+
+  Future<List<Apu>> getApusByProject(int projectId) async {
+    final db = await instance.database;
+    final apuMaps = await db.query('apus', where: 'projectId = ?', whereArgs: [projectId]);
+    
     final itemMaps = await db.query('apu_items');
     final insumos = await getAllInsumos();
     final insumoMap = {for (var i in insumos) i.codigo: i};

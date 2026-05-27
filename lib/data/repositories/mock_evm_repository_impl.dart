@@ -1,7 +1,3 @@
-// VULNERABILIDAD: Datos manejados en memoria.
-// RIESGO: Si la aplicación se cierra, los datos no persisten.
-// SOLUCIÓN SUGERIDA: Implementar persistencia real (Supabase) cuando el flujo UI esté validado.
-
 import 'package:budget_analyzer/domain/models/evm_metrics.dart';
 import 'package:budget_analyzer/domain/repositories/i_evm_repository.dart';
 
@@ -47,7 +43,7 @@ class MockEvmRepositoryImpl implements IEvmRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getApus() async {
+  Future<List<Map<String, dynamic>>> getApus({int? projectId}) async {
     await Future.delayed(const Duration(milliseconds: 200));
     return List.from(_apus);
   }

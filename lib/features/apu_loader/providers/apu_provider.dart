@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:budget_analyzer/domain/models/apu.dart';
+import 'package:budget_analyzer/domain/models/project.dart';
 import 'package:budget_analyzer/data/repositories/excel_apu_repository.dart';
+import 'package:budget_analyzer/core/providers/project_providers.dart';
 
 final apuRepositoryProvider = Provider<ExcelApuRepository>((ref) {
   return ExcelApuRepository();
@@ -44,14 +46,17 @@ class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
   Future<void> _init() async {
     state = state.copyWith(isLoading: true);
     try {
-      final apus = await _repository.getAllApus();
+      final activeProject = ref.read(activeProjectProvider);
+      final apus = activeProject != null
+          ? await _repository.getApusByProject(activeProject.id!)
+          : await _repository.getAllApus();
       state = state.copyWith(isLoading: false, apusCargados: apus);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> pickAndLoadExcel() async {
+  Future<void> pickAndLoadExcel(String projectName) async {
     try {
       state = state.copyWith(isLoading: true, error: null);
       FilePickerResult? result = await FilePicker.pickFiles(
@@ -61,7 +66,21 @@ class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
 
       if (result != null && result.files.single.path != null) {
         final path = result.files.single.path!;
-        final extractionResult = await _repository.loadApusFromFile(path);
+        final extractionResult = await _repository.loadApusFromFile(path, projectName);
+
+        // Invalidar lista de proyectos para que se vuelva a cargar
+        ref.invalidate(projectListProvider);
+        
+        // Asignar el proyecto activo en la app
+        if (extractionResult.apus.isNotEmpty) {
+          final projectId = extractionResult.apus.first.projectId;
+          final project = Project(
+            id: projectId,
+            name: projectName,
+            date: DateTime.now().toIso8601String(),
+          );
+          ref.read(activeProjectProvider.notifier).selectProject(project);
+        }
 
         state = state.copyWith(
           isLoading: false,
@@ -73,7 +92,7 @@ class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: 'Error al cargar el archivo: \$e',
+        error: 'Error al cargar el archivo: $e',
       );
     }
   }
