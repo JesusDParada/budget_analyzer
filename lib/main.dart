@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/features/backoffice/presentation/dashboard_page.dart';
 import 'package:budget_analyzer/features/warehouse/presentation/inventory_issue_page.dart';
 import 'package:budget_analyzer/features/resident/presentation/progress_entry_page.dart';
+import 'package:budget_analyzer/features/apu_loader/ui/apu_loader_screen.dart';
 
 void main() {
   runApp(
@@ -43,6 +44,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     const DashboardPage(),
     const InventoryIssuePage(),
     const ProgressEntryPage(),
+    const ApuLoaderScreen(),
   ];
 
   @override
@@ -50,12 +52,14 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     return Scaffold(
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'Almacén'),
           BottomNavigationBarItem(icon: Icon(Icons.construction), label: 'Avance'),
+          BottomNavigationBarItem(icon: Icon(Icons.upload_file), label: 'APUs'),
         ],
       ),
     );

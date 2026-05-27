@@ -50,6 +50,7 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
               ),
               const SizedBox(height: 40),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _selectedApuId,
                 items: apus.map((apu) {
                   return DropdownMenuItem(

@@ -48,6 +48,7 @@ class _InventoryIssuePageState extends ConsumerState<InventoryIssuePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: _selectedApuId,
                 items: apus.map((apu) {
                   return DropdownMenuItem(

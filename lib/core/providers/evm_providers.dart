@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/domain/repositories/i_evm_repository.dart';
-import 'package:budget_analyzer/data/repositories/mock_evm_repository_impl.dart';
+import 'package:budget_analyzer/data/repositories/local_db_evm_repository_impl.dart';
 import 'package:budget_analyzer/domain/models/evm_metrics.dart';
 
 // Provider global para el repositorio
 // Facilita la inyección de dependencias y el cambio a la base real después
 final evmRepositoryProvider = Provider<IEvmRepository>((ref) {
-  return MockEvmRepositoryImpl();
+  return LocalDbEvmRepositoryImpl();
 });
 
 // Provider para la lista de APUs
