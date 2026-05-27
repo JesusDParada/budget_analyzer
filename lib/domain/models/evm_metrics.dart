@@ -1,0 +1,19 @@
+/// Propósito Específico: Modelo que representa las métricas principales de EVM para un APU.
+/// Mapa de Relaciones: Usado por el repositorio de EVM para retornar los cálculos y consumido por la UI.
+class EvmMetrics {
+  final String apuId;
+  final double ac;
+  final double ev;
+  final double cpi;
+  final double eac;
+  final double bac;
+
+  EvmMetrics({
+    required this.apuId,
+    required this.ac,
+    required this.ev,
+    required this.cpi,
+    required this.eac,
+    required this.bac,
+  });
+}
