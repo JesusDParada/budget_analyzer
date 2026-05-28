@@ -29,6 +29,7 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
     
     // Invalida para refrescar datos
     ref.invalidate(apuMetricsProvider(_selectedApuId!));
+    ref.invalidate(apuStockProvider(_selectedApuId!));
     
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Corte cerrado y guardado correctamente')));
@@ -47,7 +48,7 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
     final drafts = _selectedApuId != null ? (ref.watch(draftPurchasesProvider)[_selectedApuId] ?? []) : [];
     double totalDraftCost = 0.0;
     for (var d in drafts) {
-      totalDraftCost += d['realPrice'] * d['purchasedQuantity'];
+      totalDraftCost += d['realPrice'] * d['consumedQuantity'];
     }
 
     return Scaffold(

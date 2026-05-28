@@ -30,7 +30,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -133,6 +133,34 @@ CREATE TABLE cut_insumo_purchases (
 )
 ''');
     }
+
+    if (oldVersion < 5) {
+      await db.execute('DROP TABLE IF EXISTS cut_records');
+      await db.execute('DROP TABLE IF EXISTS cut_insumo_purchases');
+
+      await db.execute('''
+CREATE TABLE cut_records (
+  id $textType PRIMARY KEY,
+  apuCodigo $textType,
+  cutNumber INTEGER NOT NULL,
+  activityQuantity $doubleType,
+  date $textType,
+  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
+)
+''');
+
+      await db.execute('''
+CREATE TABLE cut_insumo_purchases (
+  id $textType PRIMARY KEY,
+  cutRecordId $textType,
+  insumoDescription $textType,
+  realPrice $doubleType,
+  purchasedQuantity $doubleType,
+  consumedQuantity $doubleType,
+  FOREIGN KEY (cutRecordId) REFERENCES cut_records (id) ON DELETE CASCADE
+)
+''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -204,6 +232,7 @@ CREATE TABLE cut_insumo_purchases (
   insumoDescription $textType,
   realPrice $doubleType,
   purchasedQuantity $doubleType,
+  consumedQuantity $doubleType,
   FOREIGN KEY (cutRecordId) REFERENCES cut_records (id) ON DELETE CASCADE
 )
 ''');

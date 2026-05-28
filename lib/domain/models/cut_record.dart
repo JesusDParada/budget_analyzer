@@ -43,6 +43,7 @@ class CutInsumoPurchase {
   final String insumoDescription;
   final double realPrice;
   final double purchasedQuantity;
+  final double consumedQuantity;
 
   CutInsumoPurchase({
     required this.id,
@@ -50,9 +51,10 @@ class CutInsumoPurchase {
     required this.insumoDescription,
     required this.realPrice,
     required this.purchasedQuantity,
+    required this.consumedQuantity,
   });
 
-  double get cost => realPrice * purchasedQuantity;
+  double get cost => realPrice * consumedQuantity;
 
   factory CutInsumoPurchase.fromMap(Map<String, dynamic> map) {
     return CutInsumoPurchase(
@@ -61,6 +63,7 @@ class CutInsumoPurchase {
       insumoDescription: map['insumoDescription'] as String,
       realPrice: (map['realPrice'] as num).toDouble(),
       purchasedQuantity: (map['purchasedQuantity'] as num).toDouble(),
+      consumedQuantity: (map['consumedQuantity'] as num).toDouble(),
     );
   }
 
@@ -71,6 +74,7 @@ class CutInsumoPurchase {
       'insumoDescription': insumoDescription,
       'realPrice': realPrice,
       'purchasedQuantity': purchasedQuantity,
+      'consumedQuantity': consumedQuantity,
     };
   }
 }

@@ -28,6 +28,35 @@ final apuInsumosProvider = FutureProvider.family<List<Map<String, dynamic>>, Str
   return repository.getApuInsumos(apuId);
 });
 
+// Provider para calcular el stock sobrante por insumo para una APU
+final apuStockProvider = FutureProvider.family<Map<String, double>, String>((ref, apuId) async {
+  final repository = ref.watch(evmRepositoryProvider);
+  final cuts = await repository.getCutRecordsForApu(apuId);
+  
+  Map<String, double> stock = {};
+  
+  // Sum up all purchased minus consumed across all cuts
+  // Notice that cuts are returned from local_db_evm_repository_impl (or Mock) but currently `getCutRecordsForApu` just returns the cut records.
+  // Wait, local_db_evm_repository_impl.getCutRecordsForApu doesn't return purchases inside.
+  // I need to fetch the purchases.
+  // Let's modify local_db_evm_repository_impl to include purchases or do it here. 
+  // It's better to fetch from DB here or use `calculateMetricsForApu` which returns `evRecords` containing the purchases!
+  final metrics = await repository.calculateMetricsForApu(apuId);
+  
+  for (var cut in metrics.evRecords) {
+    final purchases = cut['purchases'] as List<dynamic>? ?? [];
+    for (var p in purchases) {
+      final desc = p['insumoDescription'] as String;
+      final purchased = (p['purchasedQuantity'] as num).toDouble();
+      final consumed = (p['consumedQuantity'] as num).toDouble();
+      
+      stock[desc] = (stock[desc] ?? 0.0) + (purchased - consumed);
+    }
+  }
+  
+  return stock;
+});
+
 // Notifier para el borrador de compras por APU en el corte actual
 class DraftPurchasesNotifier extends Notifier<Map<String, List<Map<String, dynamic>>>> {
   @override
@@ -35,13 +64,14 @@ class DraftPurchasesNotifier extends Notifier<Map<String, List<Map<String, dynam
     return {};
   }
 
-  void addPurchase(String apuId, String insumoDesc, double realPrice, double purchasedQuantity) {
+  void addPurchase(String apuId, String insumoDesc, double realPrice, double purchasedQuantity, double consumedQuantity) {
     final currentList = state[apuId] ?? [];
     final newList = List<Map<String, dynamic>>.from(currentList);
     newList.add({
       'insumoDescription': insumoDesc,
       'realPrice': realPrice,
       'purchasedQuantity': purchasedQuantity,
+      'consumedQuantity': consumedQuantity,
     });
     
     state = {

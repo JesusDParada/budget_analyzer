@@ -121,7 +121,7 @@ class _ApuMetricsCard extends ConsumerWidget {
                                     ...purchases.map((p) => Padding(
                                       padding: const EdgeInsets.only(left: 8.0),
                                       child: Text(
-                                        '- ${p['insumoDescription']}: \$${p['realPrice']} x ${p['purchasedQuantity']}',
+                                        '- ${p['insumoDescription']}: \$${p['realPrice']} | Comp: ${p['purchasedQuantity']} | Cons: ${p['consumedQuantity']} (AC \$${((p['realPrice'] as num) * (p['consumedQuantity'] as num)).toStringAsFixed(2)})',
                                         style: const TextStyle(fontSize: 12),
                                       ),
                                     )),

@@ -32,7 +32,7 @@ class MockEvmRepositoryImpl implements IEvmRepository {
       final cutPurchases = _purchases.where((p) => p['cutRecordId'] == cutId).toList();
       double insumosCost = 0.0;
       for (var p in cutPurchases) {
-        insumosCost += p['realPrice'] * p['purchasedQuantity'];
+        insumosCost += p['realPrice'] * p['consumedQuantity'];
       }
       final double cutAc = insumosCost;
       ac += cutAc;
@@ -92,6 +92,7 @@ class MockEvmRepositoryImpl implements IEvmRepository {
         'insumoDescription': p['insumoDescription'],
         'realPrice': p['realPrice'],
         'purchasedQuantity': p['purchasedQuantity'],
+        'consumedQuantity': p['consumedQuantity'],
       });
     }
   }

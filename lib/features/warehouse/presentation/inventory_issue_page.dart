@@ -77,6 +77,7 @@ class _ApuInsumosList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final insumosAsync = ref.watch(apuInsumosProvider(apuId));
+    final stockAsync = ref.watch(apuStockProvider(apuId));
 
     return Card(
       elevation: 2,
@@ -92,16 +93,34 @@ class _ApuInsumosList extends ConsumerWidget {
                 if (insumos.isEmpty) {
                   return const Center(child: Text('No hay insumos para esta APU.'));
                 }
+                
+                final stockMap = stockAsync.value ?? {};
+
                 return ListView.builder(
                   itemCount: insumos.length,
                   itemBuilder: (context, index) {
                     final insumo = insumos[index];
+                    final stockSobrante = stockMap[insumo['descripcion']] ?? 0.0;
+                    
                     return ListTile(
                       title: Text(insumo['descripcion']),
-                      subtitle: Text('PPto: \$${insumo['precioUnitario']} x ${insumo['cantidad']} ${insumo['unidad']}'),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('PPto: \$${insumo['precioUnitario']} x ${insumo['cantidad']} ${insumo['unidad']}'),
+                          Text('Sobrante en Almacén: $stockSobrante ${insumo['unidad']}', style: TextStyle(color: stockSobrante > 0 ? Colors.green : Colors.grey)),
+                        ],
+                      ),
                       trailing: IconButton(
                         icon: const Icon(Icons.add_shopping_cart, color: Colors.blue),
-                        onPressed: () => _showAddPurchaseDialog(context, ref, apuId, insumo),
+                        onPressed: () => showDialog(
+                          context: context,
+                          builder: (_) => _AddPurchaseDialog(
+                            apuId: apuId,
+                            insumo: insumo,
+                            stockSobrante: stockSobrante,
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -115,52 +134,112 @@ class _ApuInsumosList extends ConsumerWidget {
       ),
     );
   }
+}
 
-  void _showAddPurchaseDialog(BuildContext context, WidgetRef ref, String apuId, Map<String, dynamic> insumo) {
-    final priceController = TextEditingController(text: insumo['precioUnitario'].toString());
-    final qtyController = TextEditingController();
+class _AddPurchaseDialog extends ConsumerStatefulWidget {
+  final String apuId;
+  final Map<String, dynamic> insumo;
+  final double stockSobrante;
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Agregar Compra: ${insumo['descripcion']}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(labelText: 'Precio Unitario Real (\$)'),
-                keyboardType: TextInputType.number,
-              ),
+  const _AddPurchaseDialog({required this.apuId, required this.insumo, required this.stockSobrante});
+
+  @override
+  ConsumerState<_AddPurchaseDialog> createState() => _AddPurchaseDialogState();
+}
+
+class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
+  late TextEditingController priceController;
+  late TextEditingController purchasedQtyController;
+  late TextEditingController consumedQtyController;
+
+  @override
+  void initState() {
+    super.initState();
+    priceController = TextEditingController(text: widget.insumo['precioUnitario'].toString());
+    purchasedQtyController = TextEditingController();
+    consumedQtyController = TextEditingController();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final purchased = double.tryParse(purchasedQtyController.text) ?? 0.0;
+    final consumed = double.tryParse(consumedQtyController.text) ?? 0.0;
+    final double maxAuthorized = purchased + widget.stockSobrante;
+    
+    final bool showWarning = consumed > maxAuthorized;
+
+    return AlertDialog(
+      title: Text('Agregar: ${widget.insumo['descripcion']}'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Sobrante Actual: ${widget.stockSobrante} ${widget.insumo['unidad']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            TextField(
+              controller: priceController,
+              decoration: const InputDecoration(labelText: 'Precio Unitario Real (\$)'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: purchasedQtyController,
+              decoration: InputDecoration(labelText: 'Cantidad Comprada (${widget.insumo['unidad']})'),
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: consumedQtyController,
+              decoration: InputDecoration(labelText: 'Cantidad Consumida (${widget.insumo['unidad']})'),
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
+            ),
+            if (showWarning) ...[
               const SizedBox(height: 10),
-              TextField(
-                controller: qtyController,
-                decoration: InputDecoration(labelText: 'Cantidad Comprada (${insumo['unidad']})'),
-                keyboardType: TextInputType.number,
-                autofocus: true,
+              Container(
+                padding: const EdgeInsets.all(8),
+                color: Colors.orange.shade100,
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Consumo no registrado: Te faltan ${ (consumed - maxAuthorized).toStringAsFixed(2) } comprados para cubrir este consumo.',
+                        style: const TextStyle(color: Colors.deepOrange, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final price = double.tryParse(priceController.text) ?? 0.0;
-                final qty = double.tryParse(qtyController.text) ?? 0.0;
-                if (price > 0 && qty > 0) {
-                  ref.read(draftPurchasesProvider.notifier).addPurchase(apuId, insumo['descripcion'], price, qty);
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('Agregar al Borrador'),
-            ),
+            ]
           ],
-        );
-      },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final price = double.tryParse(priceController.text) ?? 0.0;
+            if (price >= 0 && (purchased > 0 || consumed > 0)) {
+              ref.read(draftPurchasesProvider.notifier).addPurchase(
+                widget.apuId, 
+                widget.insumo['descripcion'], 
+                price, 
+                purchased,
+                consumed
+              );
+              Navigator.pop(context);
+            }
+          },
+          child: const Text('Agregar al Borrador'),
+        ),
+      ],
     );
   }
 }
@@ -177,7 +256,7 @@ class _DraftPurchasesList extends ConsumerWidget {
 
     double totalCost = 0.0;
     for (var p in purchases) {
-      totalCost += p['realPrice'] * p['purchasedQuantity'];
+      totalCost += p['realPrice'] * p['consumedQuantity'];
     }
 
     return Card(
@@ -196,10 +275,11 @@ class _DraftPurchasesList extends ConsumerWidget {
                     itemCount: purchases.length,
                     itemBuilder: (context, index) {
                       final p = purchases[index];
-                      final cost = p['realPrice'] * p['purchasedQuantity'];
+                      final cost = p['realPrice'] * p['consumedQuantity'];
                       return ListTile(
                         title: Text(p['insumoDescription']),
-                        subtitle: Text('\$${p['realPrice']} x ${p['purchasedQuantity']} = \$${cost.toStringAsFixed(2)}'),
+                        subtitle: Text('Comp: ${p['purchasedQuantity']} | Cons: ${p['consumedQuantity']}\n\$${p['realPrice']} x ${p['consumedQuantity']} (Cons) = \$${cost.toStringAsFixed(2)}'),
+                        isThreeLine: true,
                         trailing: IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           onPressed: () {

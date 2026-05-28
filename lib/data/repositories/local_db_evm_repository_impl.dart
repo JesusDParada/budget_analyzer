@@ -81,11 +81,11 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
       
       for (var p in purchases) {
         final double realPrice = p['realPrice'] as double;
-        final double qty = p['purchasedQuantity'] as double;
-        cutInsumosCost += (realPrice * qty);
+        final double consumedQty = p['consumedQuantity'] as double;
+        cutInsumosCost += (realPrice * consumedQty);
       }
       
-      final double cutAc = cutInsumosCost; // AC es simplemente la suma de los insumos comprados, sin multiplicar por avance
+      final double cutAc = cutInsumosCost; // AC es la suma de los insumos consumidos
       ac += cutAc;
       
       cutRecordsUI.add({
@@ -139,6 +139,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
         'insumoDescription': p['insumoDescription'],
         'realPrice': p['realPrice'],
         'purchasedQuantity': p['purchasedQuantity'],
+        'consumedQuantity': p['consumedQuantity'],
       };
     }).toList();
 
