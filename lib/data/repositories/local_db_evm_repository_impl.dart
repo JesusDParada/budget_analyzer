@@ -19,8 +19,12 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
       final totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
       final bac = apu.bac > 0 ? apu.bac : (unitPrice * totalQty);
 
+      // Usamos una clave compuesta única por proyecto ("projectId_codigo")
+      // para evitar colisiones entre proyectos diferentes con el mismo código.
+      final uniqueId = apu.projectId != null ? '${apu.projectId}_${apu.codigo}' : apu.codigo;
+
       return {
-        'id': apu.codigo, // Usamos el código como ID único
+        'id': uniqueId,
         'code': apu.codigo,
         'description': apu.nombre,
         'unit_measure': apu.unidad,
@@ -33,9 +37,18 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
 
   @override
   Future<EvmMetrics> calculateMetricsForApu(String apuId) async {
-    final apus = await _dbHelper.getAllApus();
+    // Descomponer el apuId (que puede ser compuesto: "projectId_codigo")
+    final parts = apuId.split('_');
+    final int? projectId = parts.length > 1 ? int.tryParse(parts[0]) : null;
+    final String codigo = parts.length > 1 ? parts.sublist(1).join('_') : apuId;
+
+    // Buscar las APUs del proyecto correspondiente si está disponible
+    final apus = projectId != null
+        ? await _dbHelper.getApusByProject(projectId)
+        : await _dbHelper.getAllApus();
+
     final apu = apus.firstWhere(
-      (a) => a.codigo == apuId,
+      (a) => a.codigo == codigo,
       orElse: () => throw Exception('APU no encontrado: $apuId'),
     );
 
