@@ -49,8 +49,11 @@ class ApuInsumosParser {
         // Skip empty or purely structural rows
         if (col1.isEmpty && col2.isEmpty) continue;
         
-        // Detect headers like "Código | Descripción | U.M. ..."
-        if (col1.toLowerCase() == 'código' || col2.toLowerCase() == 'descripción') {
+        // Detect insumo section headers: "Código | Descripción | U.M. ..."
+        // We require BOTH col1=="Código" AND col2=="Descripción" to avoid
+        // matching the APU metadata row ("Código | 1.1") which would
+        // incorrectly include the activity name as an insumo.
+        if (col1.toLowerCase() == 'código' && col2.toLowerCase() == 'descripción') {
           isParsingInsumos = true;
           continue;
         }
