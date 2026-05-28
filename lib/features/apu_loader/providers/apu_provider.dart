@@ -34,7 +34,7 @@ class ApuLoaderState {
 }
 
 class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
-  late final ExcelApuRepository _repository;
+  late ExcelApuRepository _repository;
 
   @override
   ApuLoaderState build() {

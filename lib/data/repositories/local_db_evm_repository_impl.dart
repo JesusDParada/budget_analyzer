@@ -17,7 +17,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
     return apus.map((apu) {
       final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
       final totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
-      final bac = unitPrice * totalQty;
+      final bac = apu.bac > 0 ? apu.bac : (unitPrice * totalQty);
 
       return {
         'id': apu.codigo, // Usamos el código como ID único
@@ -41,7 +41,8 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
 
     final double unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
     final double totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
-    final double bac = unitPrice * totalQty;
+    // Usamos el BAC extraído directamente de la columna G (Vr. Parcial) si está disponible, sino lo calculamos
+    final double bac = apu.bac > 0 ? apu.bac : (unitPrice * totalQty);
 
     // Obtener AC (Actual Cost) sumando salidas de almacén
     final inventoryIssues = await _dbHelper.getInventoryIssuesForApu(apuId);
@@ -55,6 +56,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
     // Calcular índices
     final double cpi = ac > 0 ? ev / ac : (ev > 0 ? double.infinity : 1.0);
     final double eac = cpi > 0 && cpi != double.infinity ? bac / cpi : bac;
+    final double etc = eac - ac;
 
     return EvmMetrics(
       apuId: apuId,
@@ -63,6 +65,9 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
       cpi: cpi,
       eac: eac,
       bac: bac,
+      etc: etc,
+      evRecords: fieldProgress,
+      acRecords: inventoryIssues,
     );
   }
 

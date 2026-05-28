@@ -7,6 +7,9 @@ class EvmMetrics {
   final double cpi;
   final double eac;
   final double bac;
+  final double etc;
+  final List<Map<String, dynamic>> evRecords;
+  final List<Map<String, dynamic>> acRecords;
 
   EvmMetrics({
     required this.apuId,
@@ -15,5 +18,8 @@ class EvmMetrics {
     required this.cpi,
     required this.eac,
     required this.bac,
+    required this.etc,
+    this.evRecords = const [],
+    this.acRecords = const [],
   });
 }

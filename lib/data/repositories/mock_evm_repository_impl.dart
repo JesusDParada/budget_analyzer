@@ -31,6 +31,25 @@ class MockEvmRepositoryImpl implements IEvmRepository {
 
     final double cpi = ac > 0 ? ev / ac : (ev > 0 ? double.infinity : 1.0); 
     final double eac = cpi > 0 && cpi != double.infinity ? bac / cpi : bac;
+    final double etc = eac - ac;
+
+    final evRecords = _fieldProgress
+        .where((p) => p['apu_id'] == apuId)
+        .map((p) => {
+              'date': (p['date'] as DateTime).toIso8601String(),
+              'quantity': p['executed_quantity'],
+            })
+        .toList();
+
+    final acRecords = _inventoryIssues
+        .where((i) => i['apu_id'] == apuId)
+        .map((i) => {
+              'date': (i['date'] as DateTime).toIso8601String(),
+              'materialName': i['material_name'],
+              'quantity': i['quantity_issued'],
+              'totalCost': i['total_cost'],
+            })
+        .toList();
 
     return EvmMetrics(
       apuId: apuId,
@@ -39,6 +58,9 @@ class MockEvmRepositoryImpl implements IEvmRepository {
       cpi: cpi,
       eac: eac,
       bac: bac,
+      etc: etc,
+      evRecords: evRecords,
+      acRecords: acRecords,
     );
   }
 
@@ -68,6 +90,7 @@ class MockEvmRepositoryImpl implements IEvmRepository {
       'material_name': materialName,
       'quantity_issued': quantity,
       'total_cost': totalCost,
+      'date': DateTime.now(),
     });
   }
 }

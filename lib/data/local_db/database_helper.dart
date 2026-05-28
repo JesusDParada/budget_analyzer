@@ -88,6 +88,7 @@ CREATE TABLE apus (
   unidad $textType,
   cantidad $doubleType,
   valorUnitario $doubleType,
+  bac $doubleType,
   memoriaJson TEXT,
   detalleJson TEXT,
   FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
@@ -140,6 +141,7 @@ CREATE TABLE apus (
   unidad $textType,
   cantidad $doubleType,
   valorUnitario $doubleType,
+  bac $doubleType,
   memoriaJson TEXT,
   detalleJson TEXT,
   FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE

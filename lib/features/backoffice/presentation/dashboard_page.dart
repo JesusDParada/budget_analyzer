@@ -38,42 +38,84 @@ class _ApuMetricsCard extends ConsumerWidget {
 
     return Card(
       margin: const EdgeInsets.all(12),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: metricsAsync.when(
-          data: (metrics) {
-            final isGood = metrics.cpi >= 1.0;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(apuName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('BAC: \$${metrics.bac.toStringAsFixed(2)}'),
-                    Text('EV: \$${metrics.ev.toStringAsFixed(2)}'),
-                    Text('AC: \$${metrics.ac.toStringAsFixed(2)}'),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Text('CPI: '),
-                    Text(
-                      metrics.cpi == double.infinity ? 'N/A' : metrics.cpi.toStringAsFixed(2),
-                      style: TextStyle(
-                        color: isGood ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.bold,
+      child: metricsAsync.when(
+        data: (metrics) {
+          final isGood = metrics.cpi >= 1.0;
+          return ExpansionTile(
+            title: Text(apuName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('BAC: \$${metrics.bac.toStringAsFixed(2)}'),
+                      Text('EV: \$${metrics.ev.toStringAsFixed(2)}'),
+                      Text('AC: \$${metrics.ac.toStringAsFixed(2)}'),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Text('CPI: '),
+                          Text(
+                            metrics.cpi == double.infinity ? 'N/A' : metrics.cpi.toStringAsFixed(2),
+                            style: TextStyle(
+                              color: isGood ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (err, stack) => Text('Error: $err'),
+                      Text('EAC: \$${metrics.eac.toStringAsFixed(2)}'),
+                      Text('ETC: \$${metrics.etc.toStringAsFixed(2)}'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            children: [
+              const Divider(),
+              ListTile(
+                title: const Text('Registros de Valor Ganado (EV)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: metrics.evRecords.isEmpty
+                    ? const Text('No hay registros')
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: metrics.evRecords.map((r) {
+                          final dateStr = r['date']?.toString().split('T').first ?? '';
+                          return Text('Fecha: $dateStr | Cantidad: ${r['quantity']}');
+                        }).toList(),
+                      ),
+              ),
+              const Divider(),
+              ListTile(
+                title: const Text('Registros de Costo Real (AC / CV)', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: metrics.acRecords.isEmpty
+                    ? const Text('No hay registros')
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: metrics.acRecords.map((r) {
+                          final dateStr = r['date']?.toString().split('T').first ?? '';
+                          return Text('Fecha: $dateStr | Material: ${r['materialName']} | Cantidad: ${r['quantity']} | Costo: \$${(r['totalCost'] as num).toStringAsFixed(2)}');
+                        }).toList(),
+                      ),
+              ),
+            ],
+          );
+        },
+        loading: () => const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (err, stack) => Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text('Error: $err'),
         ),
       ),
     );

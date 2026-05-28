@@ -40,6 +40,7 @@ class Apu {
   final int? projectId;
   final double cantidad;
   final double valorUnitario;
+  final double bac;
   final String? memoriaJson;
   final String? detalleJson;
   final List<ApuItem> items;
@@ -51,6 +52,7 @@ class Apu {
     this.projectId,
     this.cantidad = 0.0,
     this.valorUnitario = 0.0,
+    this.bac = 0.0,
     this.memoriaJson,
     this.detalleJson,
     this.items = const [],
@@ -66,6 +68,7 @@ class Apu {
       projectId: map['projectId'] as int?,
       cantidad: (map['cantidad'] as num?)?.toDouble() ?? 0.0,
       valorUnitario: (map['valorUnitario'] as num?)?.toDouble() ?? 0.0,
+      bac: (map['bac'] as num?)?.toDouble() ?? 0.0,
       memoriaJson: map['memoriaJson'] as String?,
       detalleJson: map['detalleJson'] as String?,
       items: items,
@@ -80,6 +83,7 @@ class Apu {
       if (projectId != null) 'projectId': projectId,
       'cantidad': cantidad,
       'valorUnitario': valorUnitario,
+      'bac': bac,
       if (memoriaJson != null) 'memoriaJson': memoriaJson,
       if (detalleJson != null) 'detalleJson': detalleJson,
     };
