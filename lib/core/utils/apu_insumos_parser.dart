@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 class InsumoApu {
   final String codigo;
@@ -85,7 +86,7 @@ class ApuInsumosParser {
       }
       return insumos;
     } catch (e) {
-      print('Error parsing detalleJson: $e');
+      debugPrint('Error parsing detalleJson: $e');
       return [];
     }
   }

@@ -100,7 +100,8 @@ class _ApuInsumosList extends ConsumerWidget {
                   itemCount: insumos.length,
                   itemBuilder: (context, index) {
                     final insumo = insumos[index];
-                    final stockSobrante = stockMap[insumo['descripcion']] ?? 0.0;
+                    final insumoStock = stockMap[insumo['descripcion']];
+                    final stockSobrante = insumoStock?.totalQuantity ?? 0.0;
                     
                     return ListTile(
                       title: Text(insumo['descripcion']),
@@ -118,7 +119,7 @@ class _ApuInsumosList extends ConsumerWidget {
                           builder: (_) => _AddPurchaseDialog(
                             apuId: apuId,
                             insumo: insumo,
-                            stockSobrante: stockSobrante,
+                            insumoStock: insumoStock,
                           ),
                         ),
                       ),
@@ -139,9 +140,9 @@ class _ApuInsumosList extends ConsumerWidget {
 class _AddPurchaseDialog extends ConsumerStatefulWidget {
   final String apuId;
   final Map<String, dynamic> insumo;
-  final double stockSobrante;
+  final InsumoStock? insumoStock;
 
-  const _AddPurchaseDialog({required this.apuId, required this.insumo, required this.stockSobrante});
+  const _AddPurchaseDialog({required this.apuId, required this.insumo, required this.insumoStock});
 
   @override
   ConsumerState<_AddPurchaseDialog> createState() => _AddPurchaseDialogState();
@@ -155,18 +156,21 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
   @override
   void initState() {
     super.initState();
-    priceController = TextEditingController(text: widget.insumo['precioUnitario'].toString());
+    final suggestedPrice = widget.insumoStock?.lastPrice ?? widget.insumo['precioUnitario'];
+    priceController = TextEditingController(text: suggestedPrice.toString());
     purchasedQtyController = TextEditingController();
     consumedQtyController = TextEditingController();
   }
 
   @override
   Widget build(BuildContext context) {
+    final stockSobrante = widget.insumoStock?.totalQuantity ?? 0.0;
     final purchased = double.tryParse(purchasedQtyController.text) ?? 0.0;
     final consumed = double.tryParse(consumedQtyController.text) ?? 0.0;
-    final double maxAuthorized = purchased + widget.stockSobrante;
+    final double maxAuthorized = purchased + stockSobrante;
     
     final bool showWarning = consumed > maxAuthorized;
+    final bool needsPrice = purchased > 0 || consumed > stockSobrante;
 
     return AlertDialog(
       title: Text('Agregar: ${widget.insumo['descripcion']}'),
@@ -175,13 +179,7 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Sobrante Actual: ${widget.stockSobrante} ${widget.insumo['unidad']}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            TextField(
-              controller: priceController,
-              decoration: const InputDecoration(labelText: 'Precio Unitario Real (\$)'),
-              keyboardType: TextInputType.number,
-            ),
+            Text('Sobrante Actual: $stockSobrante ${widget.insumo['unidad']}', style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             TextField(
               controller: purchasedQtyController,
@@ -196,6 +194,16 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
             ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: priceController,
+              decoration: InputDecoration(
+                labelText: needsPrice ? 'Precio Unitario Real (\$)' : 'Precio Automático (FIFO)',
+                hintText: needsPrice ? 'Ingrese el precio de compra o estimado' : 'Calculado desde stock',
+              ),
+              enabled: needsPrice,
+              keyboardType: TextInputType.number,
+            ),
             if (showWarning) ...[
               const SizedBox(height: 10),
               Container(
@@ -207,7 +215,7 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Consumo no registrado: Te faltan ${ (consumed - maxAuthorized).toStringAsFixed(2) } comprados para cubrir este consumo.',
+                        'Consumo no registrado: Te faltan ${ (consumed - maxAuthorized).toStringAsFixed(2) } comprados para cubrir este consumo. El precio unitario de arriba se usará para este excedente.',
                         style: const TextStyle(color: Colors.deepOrange, fontSize: 12),
                       ),
                     ),
@@ -226,13 +234,14 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
         ElevatedButton(
           onPressed: () {
             final price = double.tryParse(priceController.text) ?? 0.0;
-            if (price >= 0 && (purchased > 0 || consumed > 0)) {
+            if (purchased > 0 || consumed > 0) {
               ref.read(draftPurchasesProvider.notifier).addPurchase(
                 widget.apuId, 
                 widget.insumo['descripcion'], 
                 price, 
                 purchased,
-                consumed
+                consumed,
+                widget.insumoStock
               );
               Navigator.pop(context);
             }

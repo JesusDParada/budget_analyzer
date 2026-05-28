@@ -134,7 +134,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
 
     List<Map<String, dynamic>> purchaseMaps = purchases.map((p) {
       return {
-        'id': DateTime.now().microsecondsSinceEpoch.toString() + '_' + p.hashCode.toString(),
+        'id': '${DateTime.now().microsecondsSinceEpoch}_${p.hashCode}',
         'cutRecordId': cutId,
         'insumoDescription': p['insumoDescription'],
         'realPrice': p['realPrice'],

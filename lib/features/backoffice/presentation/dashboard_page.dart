@@ -96,7 +96,6 @@ class _ApuMetricsCard extends ConsumerWidget {
                           final dateStr = cut['date']?.toString().split('T').first ?? '';
                           final cutNumber = cut['cutNumber'];
                           final actQty = cut['activityQuantity'];
-                          final insumosCost = cut['insumosCost'];
                           final cutAc = cut['cutAc'];
                           final purchases = cut['purchases'] as List<dynamic>;
 

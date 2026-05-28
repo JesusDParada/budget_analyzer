@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:isolate';
 import 'package:excel/excel.dart';
+import 'package:flutter/foundation.dart';
 import 'package:budget_analyzer/domain/models/project.dart';
 import 'package:budget_analyzer/domain/models/apu.dart';
 import 'package:budget_analyzer/domain/models/insumo.dart';
@@ -71,12 +72,12 @@ class ExcelApuRepository implements IApuRepository {
     
     // Use the xlsx XML reader to get cached formula values
     final cachedReader = XlsxCachedValueReader(bytes);
-    print('DEBUG: XlsxCachedValueReader tomó ${sw.elapsedMilliseconds} ms');
+    debugPrint('DEBUG: XlsxCachedValueReader tomó ${sw.elapsedMilliseconds} ms');
 
     sw.reset();
     // Also decode with the excel package for sheet serialization and structure
     var excel = Excel.decodeBytes(bytes);
-    print('DEBUG: Excel.decodeBytes tomó ${sw.elapsedMilliseconds} ms');
+    debugPrint('DEBUG: Excel.decodeBytes tomó ${sw.elapsedMilliseconds} ms');
 
     final presupuestoSheet = excel.tables['PRESUPUESTO DE OBRA'];
     if (presupuestoSheet == null) {
@@ -110,7 +111,7 @@ class ExcelApuRepository implements IApuRepository {
           final cantidad = cachedReader.getCachedDouble('PRESUPUESTO DE OBRA', 'F$excelRow') ?? 0.0;
           final bac = cachedReader.getCachedDouble('PRESUPUESTO DE OBRA', 'G$excelRow') ?? 0.0;
 
-          print('DEBUG: APU $codigo - Vr.Unit=$valorUnitario, Cant=$cantidad, BAC=$bac');
+          debugPrint('DEBUG: APU $codigo - Vr.Unit=$valorUnitario, Cant=$cantidad, BAC=$bac');
 
           final serSw = Stopwatch()..start();
           // Serializar hoja de detalle (ej. "1.1")
@@ -135,8 +136,8 @@ class ExcelApuRepository implements IApuRepository {
       }
     }
     
-    print('DEBUG: Serialización JSON tomó $serializeTime ms');
-    print('DEBUG: Procesamiento de ${apusList.length} APUs tomó ${sw.elapsedMilliseconds} ms total');
+    debugPrint('DEBUG: Serialización JSON tomó $serializeTime ms');
+    debugPrint('DEBUG: Procesamiento de ${apusList.length} APUs tomó ${sw.elapsedMilliseconds} ms total');
     
     return apusList;
   }
