@@ -21,3 +21,54 @@ final apuMetricsProvider = FutureProvider.family<EvmMetrics, String>((ref, apuId
   final repository = ref.watch(evmRepositoryProvider);
   return repository.calculateMetricsForApu(apuId);
 });
+
+// Provider para obtener insumos de una APU
+final apuInsumosProvider = FutureProvider.family<List<Map<String, dynamic>>, String>((ref, apuId) async {
+  final repository = ref.watch(evmRepositoryProvider);
+  return repository.getApuInsumos(apuId);
+});
+
+// Notifier para el borrador de compras por APU en el corte actual
+class DraftPurchasesNotifier extends Notifier<Map<String, List<Map<String, dynamic>>>> {
+  @override
+  Map<String, List<Map<String, dynamic>>> build() {
+    return {};
+  }
+
+  void addPurchase(String apuId, String insumoDesc, double realPrice, double purchasedQuantity) {
+    final currentList = state[apuId] ?? [];
+    final newList = List<Map<String, dynamic>>.from(currentList);
+    newList.add({
+      'insumoDescription': insumoDesc,
+      'realPrice': realPrice,
+      'purchasedQuantity': purchasedQuantity,
+    });
+    
+    state = {
+      ...state,
+      apuId: newList,
+    };
+  }
+
+  void removePurchase(String apuId, int index) {
+    final currentList = state[apuId] ?? [];
+    if (index >= 0 && index < currentList.length) {
+      final newList = List<Map<String, dynamic>>.from(currentList);
+      newList.removeAt(index);
+      state = {
+        ...state,
+        apuId: newList,
+      };
+    }
+  }
+
+  void clearPurchases(String apuId) {
+    final newState = Map<String, List<Map<String, dynamic>>>.from(state);
+    newState.remove(apuId);
+    state = newState;
+  }
+}
+
+final draftPurchasesProvider = NotifierProvider<DraftPurchasesNotifier, Map<String, List<Map<String, dynamic>>>>(() {
+  return DraftPurchasesNotifier();
+});

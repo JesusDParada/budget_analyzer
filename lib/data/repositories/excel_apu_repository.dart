@@ -114,10 +114,10 @@ class ExcelApuRepository implements IApuRepository {
 
           final serSw = Stopwatch()..start();
           // Serializar hoja de detalle (ej. "1.1")
-          String? detalleJson = _serializeSheet(excel, codigo);
+          String? detalleJson = _serializeSheet(excel, codigo, cachedReader);
 
           // Serializar hoja de memoria (ej. "M-1.1")
-          String? memoriaJson = _serializeSheet(excel, 'M-$codigo');
+          String? memoriaJson = _serializeSheet(excel, 'M-$codigo', cachedReader);
           serializeTime += serSw.elapsedMilliseconds;
 
           apusList.add(Apu(
@@ -162,7 +162,17 @@ class ExcelApuRepository implements IApuRepository {
     return true;
   }
 
-  static String? _serializeSheet(Excel excel, String sheetName) {
+  static String _getCellRef(int row, int col) {
+    String colStr = '';
+    int c = col;
+    while (c >= 0) {
+      colStr = String.fromCharCode(65 + (c % 26)) + colStr;
+      c = (c ~/ 26) - 1;
+    }
+    return '$colStr${row + 1}';
+  }
+
+  static String? _serializeSheet(Excel excel, String sheetName, XlsxCachedValueReader cachedReader) {
     var sheet = excel.tables[sheetName];
     if (sheet == null) return null;
 
@@ -212,7 +222,17 @@ class ExcelApuRepository implements IApuRepository {
       List<dynamic> rowList = [];
       for (int c = 0; c < actualMaxCol; c++) {
         var cell = (c < row.length) ? row[c] : null;
-        rowList.add(cell?.value?.toString());
+        if (cell != null) {
+          String cellRef = _getCellRef(r, c);
+          String? cachedStr = cachedReader.getCachedString(sheetName, cellRef);
+          if (cachedStr != null && cachedStr.isNotEmpty) {
+            rowList.add(cachedStr);
+          } else {
+            rowList.add(cell.value?.toString());
+          }
+        } else {
+          rowList.add(null);
+        }
       }
       rowsList.add(rowList);
     }

@@ -30,7 +30,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -106,6 +106,33 @@ CREATE TABLE apu_items (
 )
 ''');
     }
+
+    if (oldVersion < 4) {
+      await db.execute('DROP TABLE IF EXISTS inventory_issues');
+      await db.execute('DROP TABLE IF EXISTS field_progress');
+
+      await db.execute('''
+CREATE TABLE cut_records (
+  id $textType PRIMARY KEY,
+  apuCodigo $textType,
+  cutNumber INTEGER NOT NULL,
+  activityQuantity $doubleType,
+  date $textType,
+  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
+)
+''');
+
+      await db.execute('''
+CREATE TABLE cut_insumo_purchases (
+  id $textType PRIMARY KEY,
+  cutRecordId $textType,
+  insumoDescription $textType,
+  realPrice $doubleType,
+  purchasedQuantity $doubleType,
+  FOREIGN KEY (cutRecordId) REFERENCES cut_records (id) ON DELETE CASCADE
+)
+''');
+    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -160,24 +187,24 @@ CREATE TABLE apu_items (
 ''');
 
     await db.execute('''
-CREATE TABLE inventory_issues (
+CREATE TABLE cut_records (
   id $textType PRIMARY KEY,
   apuCodigo $textType,
-  materialName $textType,
-  quantity $doubleType,
-  totalCost $doubleType,
+  cutNumber INTEGER NOT NULL,
+  activityQuantity $doubleType,
   date $textType,
   FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
 )
 ''');
 
     await db.execute('''
-CREATE TABLE field_progress (
+CREATE TABLE cut_insumo_purchases (
   id $textType PRIMARY KEY,
-  apuCodigo $textType,
-  quantity $doubleType,
-  date $textType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
+  cutRecordId $textType,
+  insumoDescription $textType,
+  realPrice $doubleType,
+  purchasedQuantity $doubleType,
+  FOREIGN KEY (cutRecordId) REFERENCES cut_records (id) ON DELETE CASCADE
 )
 ''');
   }
@@ -282,25 +309,25 @@ CREATE TABLE field_progress (
     return result;
   }
 
-  // --- Operaciones de EVM (Progreso y Salidas) ---
+  // --- Operaciones de Cortes (EVM) ---
 
-  Future<void> insertInventoryIssue(Map<String, dynamic> issueMap) async {
+  Future<void> insertCutRecord(Map<String, dynamic> cutMap, List<Map<String, dynamic>> purchases) async {
     final db = await instance.database;
-    await db.insert('inventory_issues', issueMap, conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.transaction((txn) async {
+      await txn.insert('cut_records', cutMap, conflictAlgorithm: ConflictAlgorithm.replace);
+      for (var purchase in purchases) {
+        await txn.insert('cut_insumo_purchases', purchase, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    });
   }
 
-  Future<void> insertFieldProgress(Map<String, dynamic> progressMap) async {
+  Future<List<Map<String, dynamic>>> getCutRecordsForApu(String apuCodigo) async {
     final db = await instance.database;
-    await db.insert('field_progress', progressMap, conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.query('cut_records', where: 'apuCodigo = ?', whereArgs: [apuCodigo], orderBy: 'cutNumber ASC');
   }
 
-  Future<List<Map<String, dynamic>>> getInventoryIssuesForApu(String apuCodigo) async {
+  Future<List<Map<String, dynamic>>> getPurchasesForCut(String cutRecordId) async {
     final db = await instance.database;
-    return await db.query('inventory_issues', where: 'apuCodigo = ?', whereArgs: [apuCodigo]);
-  }
-
-  Future<List<Map<String, dynamic>>> getFieldProgressForApu(String apuCodigo) async {
-    final db = await instance.database;
-    return await db.query('field_progress', where: 'apuCodigo = ?', whereArgs: [apuCodigo]);
+    return await db.query('cut_insumo_purchases', where: 'cutRecordId = ?', whereArgs: [cutRecordId]);
   }
 }

@@ -12,13 +12,18 @@ class DashboardPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard EVM')),
       body: apusAsync.when(
-        data: (apus) => ListView.builder(
-          itemCount: apus.length,
-          itemBuilder: (context, index) {
-            final apu = apus[index];
-            return _ApuMetricsCard(apuId: apu['id'], apuName: apu['description']);
-          },
-        ),
+        data: (apus) {
+          if (apus.isEmpty) {
+            return const Center(child: Text('No hay APUs cargadas o seleccionadas.'));
+          }
+          return ListView.builder(
+            itemCount: apus.length,
+            itemBuilder: (context, index) {
+              final apu = apus[index];
+              return _ApuMetricsCard(apuId: apu['id'], apuName: apu['description']);
+            },
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
@@ -82,27 +87,49 @@ class _ApuMetricsCard extends ConsumerWidget {
             children: [
               const Divider(),
               ListTile(
-                title: const Text('Registros de Valor Ganado (EV)', style: TextStyle(fontWeight: FontWeight.bold)),
+                title: const Text('Historial de Cortes Temporales', style: TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: metrics.evRecords.isEmpty
-                    ? const Text('No hay registros')
+                    ? const Text('No hay cortes registrados')
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: metrics.evRecords.map((r) {
-                          final dateStr = r['date']?.toString().split('T').first ?? '';
-                          return Text('Fecha: $dateStr | Cantidad: ${r['quantity']}');
-                        }).toList(),
-                      ),
-              ),
-              const Divider(),
-              ListTile(
-                title: const Text('Registros de Costo Real (AC / CV)', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: metrics.acRecords.isEmpty
-                    ? const Text('No hay registros')
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: metrics.acRecords.map((r) {
-                          final dateStr = r['date']?.toString().split('T').first ?? '';
-                          return Text('Fecha: $dateStr | Material: ${r['materialName']} | Cantidad: ${r['quantity']} | Costo: \$${(r['totalCost'] as num).toStringAsFixed(2)}');
+                        children: metrics.evRecords.map((cut) {
+                          final dateStr = cut['date']?.toString().split('T').first ?? '';
+                          final cutNumber = cut['cutNumber'];
+                          final actQty = cut['activityQuantity'];
+                          final insumosCost = cut['insumosCost'];
+                          final cutAc = cut['cutAc'];
+                          final purchases = cut['purchases'] as List<dynamic>;
+
+                          return Card(
+                            color: Colors.grey.shade50,
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Corte #$cutNumber - $dateStr',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text('Actividad Ejecutada: $actQty'),
+                                  Text('AC del Corte (Σ Insumos P×Q): \$${(cutAc as num).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  if (purchases.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    const Text('Compras:', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
+                                    ...purchases.map((p) => Padding(
+                                      padding: const EdgeInsets.only(left: 8.0),
+                                      child: Text(
+                                        '- ${p['insumoDescription']}: \$${p['realPrice']} x ${p['purchasedQuantity']}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    )),
+                                  ]
+                                ],
+                              ),
+                            ),
+                          );
                         }).toList(),
                       ),
               ),

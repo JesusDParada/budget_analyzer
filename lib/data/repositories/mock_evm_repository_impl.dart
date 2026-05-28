@@ -8,8 +8,8 @@ class MockEvmRepositoryImpl implements IEvmRepository {
     {'id': 'apu-2', 'code': 'APU-002', 'description': 'Concreto 3000 PSI', 'unit_measure': 'm3', 'total_quantity': 50.0, 'unit_price': 300.0, 'bac': 15000.0},
   ];
   
-  final List<Map<String, dynamic>> _inventoryIssues = [];
-  final List<Map<String, dynamic>> _fieldProgress = [];
+  final List<Map<String, dynamic>> _cutRecords = [];
+  final List<Map<String, dynamic>> _purchases = [];
 
   @override
   Future<EvmMetrics> calculateMetricsForApu(String apuId) async {
@@ -19,37 +19,39 @@ class MockEvmRepositoryImpl implements IEvmRepository {
     final double bac = apuData['bac'];
     final double totalQuantity = apuData['total_quantity'];
 
-    final double materialsCost = _inventoryIssues
-        .where((issue) => issue['apu_id'] == apuId)
-        .fold(0.0, (sum, item) => sum + item['total_cost']);
-    final double ac = materialsCost;
+    double ac = 0.0;
+    double executedQuantity = 0.0;
+    List<Map<String, dynamic>> evRecords = [];
 
-    final double executedQuantity = _fieldProgress
-        .where((progress) => progress['apu_id'] == apuId)
-        .fold(0.0, (sum, item) => sum + item['executed_quantity']);
+    final cuts = _cutRecords.where((c) => c['apu_id'] == apuId).toList();
+    for (var cut in cuts) {
+      final cutId = cut['id'];
+      final actQty = cut['activityQuantity'];
+      executedQuantity += actQty;
+      
+      final cutPurchases = _purchases.where((p) => p['cutRecordId'] == cutId).toList();
+      double insumosCost = 0.0;
+      for (var p in cutPurchases) {
+        insumosCost += p['realPrice'] * p['purchasedQuantity'];
+      }
+      final double cutAc = insumosCost;
+      ac += cutAc;
+      
+      evRecords.add({
+        'cutNumber': cut['cutNumber'],
+        'date': cut['date'],
+        'activityQuantity': actQty,
+        'insumosCost': insumosCost,
+        'cutAc': cutAc,
+        'purchases': cutPurchases,
+      });
+    }
+
     final double ev = totalQuantity > 0 ? (executedQuantity / totalQuantity) * bac : 0.0;
 
     final double cpi = ac > 0 ? ev / ac : (ev > 0 ? double.infinity : 1.0); 
     final double eac = cpi > 0 && cpi != double.infinity ? bac / cpi : bac;
     final double etc = eac - ac;
-
-    final evRecords = _fieldProgress
-        .where((p) => p['apu_id'] == apuId)
-        .map((p) => {
-              'date': (p['date'] as DateTime).toIso8601String(),
-              'quantity': p['executed_quantity'],
-            })
-        .toList();
-
-    final acRecords = _inventoryIssues
-        .where((i) => i['apu_id'] == apuId)
-        .map((i) => {
-              'date': (i['date'] as DateTime).toIso8601String(),
-              'materialName': i['material_name'],
-              'quantity': i['quantity_issued'],
-              'totalCost': i['total_cost'],
-            })
-        .toList();
 
     return EvmMetrics(
       apuId: apuId,
@@ -60,7 +62,7 @@ class MockEvmRepositoryImpl implements IEvmRepository {
       bac: bac,
       etc: etc,
       evRecords: evRecords,
-      acRecords: acRecords,
+      acRecords: const [],
     );
   }
 
@@ -71,26 +73,40 @@ class MockEvmRepositoryImpl implements IEvmRepository {
   }
 
   @override
-  Future<void> saveFieldProgress(String apuId, double quantity, DateTime date) async {
+  Future<void> saveCutRecord(String apuId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases) async {
     await Future.delayed(const Duration(milliseconds: 200));
-    _fieldProgress.add({
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+    final String cutId = DateTime.now().millisecondsSinceEpoch.toString();
+    
+    _cutRecords.add({
+      'id': cutId,
       'apu_id': apuId,
-      'date': date,
-      'executed_quantity': quantity,
+      'cutNumber': _cutRecords.where((c) => c['apu_id'] == apuId).length + 1,
+      'activityQuantity': activityQuantity,
+      'date': date.toIso8601String(),
     });
+
+    for (var p in purchases) {
+      _purchases.add({
+        'id': DateTime.now().microsecondsSinceEpoch.toString(),
+        'cutRecordId': cutId,
+        'insumoDescription': p['insumoDescription'],
+        'realPrice': p['realPrice'],
+        'purchasedQuantity': p['purchasedQuantity'],
+      });
+    }
   }
 
   @override
-  Future<void> saveInventoryIssue(String apuId, String materialName, double quantity, double totalCost) async {
+  Future<List<Map<String, dynamic>>> getApuInsumos(String apuId) async {
     await Future.delayed(const Duration(milliseconds: 200));
-    _inventoryIssues.add({
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-      'apu_id': apuId,
-      'material_name': materialName,
-      'quantity_issued': quantity,
-      'total_cost': totalCost,
-      'date': DateTime.now(),
-    });
+    return [
+      {'codigo': 'I001', 'descripcion': 'Cemento', 'unidad': 'BTO', 'precioUnitario': 25000.0, 'cantidad': 10.0},
+    ];
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getCutRecordsForApu(String apuId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    return _cutRecords.where((c) => c['apu_id'] == apuId).toList();
   }
 }

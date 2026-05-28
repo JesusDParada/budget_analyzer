@@ -10,14 +10,12 @@ abstract class IEvmRepository {
   /// Obtiene la lista de todos los APUs disponibles, opcionalmente filtrados por proyecto.
   Future<List<Map<String, dynamic>>> getApus({int? projectId});
 
-  /// Guarda el avance físico de un APU (alimenta el EV).
-  Future<void> saveFieldProgress(String apuId, double quantity, DateTime date);
+  /// Guarda un corte temporal completo (almacén + progreso vinculados)
+  Future<void> saveCutRecord(String apuId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases);
 
-  /// Guarda una salida de inventario (alimenta el AC).
-  Future<void> saveInventoryIssue(
-    String apuId,
-    String materialName,
-    double quantity,
-    double totalCost,
-  );
+  /// Obtiene los insumos de la APU (desde detalleJson) para mostrar en el formulario
+  Future<List<Map<String, dynamic>>> getApuInsumos(String apuId);
+  
+  /// Obtiene todos los cortes de un APU
+  Future<List<Map<String, dynamic>>> getCutRecordsForApu(String apuId);
 }
