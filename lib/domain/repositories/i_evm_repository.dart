@@ -5,17 +5,17 @@ import 'package:budget_analyzer/domain/models/evm_metrics.dart';
 /// la implementación subyacente (Mock, SQLite, etc.) sin afectar el resto del sistema.
 abstract class IEvmRepository {
   /// Calcula las métricas EVM (AC, EV, CPI, EAC) para un APU dado.
-  Future<EvmMetrics> calculateMetricsForApu(String apuId);
+  Future<EvmMetrics> calculateMetricsForApu(int activityId);
 
   /// Obtiene la lista de todos los APUs disponibles, opcionalmente filtrados por proyecto.
   Future<List<Map<String, dynamic>>> getApus({int? projectId});
 
   /// Guarda un corte temporal completo (almacén + progreso vinculados)
-  Future<void> saveCutRecord(String apuId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases);
+  Future<void> saveCutRecord(int activityId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases);
 
-  /// Obtiene los insumos de la APU (desde detalleJson) para mostrar en el formulario
-  Future<List<Map<String, dynamic>>> getApuInsumos(String apuId);
+  /// Obtiene los insumos de la APU (desde detalleJson o bd) para mostrar en el formulario
+  Future<List<Map<String, dynamic>>> getApuInsumos(int activityId);
   
   /// Obtiene todos los cortes de un APU
-  Future<List<Map<String, dynamic>>> getCutRecordsForApu(String apuId);
+  Future<List<Map<String, dynamic>>> getCutRecordsForApu(int activityId);
 }

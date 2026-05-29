@@ -1,35 +1,41 @@
 class Insumo {
-  final String codigo;
+  final int? id;
+  final int activityId;
   final String descripcion;
   final String unidad;
   final double valorUnitario;
-  final String tipo; 
+  final double cantidad;
 
   Insumo({
-    required this.codigo,
+    this.id,
+    required this.activityId,
     required this.descripcion,
     required this.unidad,
     required this.valorUnitario,
-    required this.tipo,
+    required this.cantidad,
   });
+
+  double get costoParcial => valorUnitario * cantidad;
 
   factory Insumo.fromMap(Map<String, dynamic> map) {
     return Insumo(
-      codigo: map['codigo'] as String,
+      id: map['id'] as int?,
+      activityId: map['activityId'] as int,
       descripcion: map['descripcion'] as String,
       unidad: map['unidad'] as String,
       valorUnitario: (map['valorUnitario'] as num).toDouble(),
-      tipo: map['tipo'] as String,
+      cantidad: (map['cantidad'] as num).toDouble(),
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'codigo': codigo,
+      if (id != null) 'id': id,
+      'activityId': activityId,
       'descripcion': descripcion,
       'unidad': unidad,
       'valorUnitario': valorUnitario,
-      'tipo': tipo,
+      'cantidad': cantidad,
     };
   }
 }

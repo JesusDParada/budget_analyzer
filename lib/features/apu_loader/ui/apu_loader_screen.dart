@@ -241,31 +241,65 @@ class ApuLoaderScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: state.apusCargados.length,
-                        itemBuilder: (context, index) {
-                          final apu = state.apusCargados[index];
-                          final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: Colors.blueAccent.withValues(alpha: 0.1),
-                                child: Text(
-                                  apu.codigo,
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                      child: state.capitulosCargados.isNotEmpty 
+                        ? ListView.builder(
+                            itemCount: state.capitulosCargados.length,
+                            itemBuilder: (context, index) {
+                              final cap = state.capitulosCargados[index];
+                              final apusCapitulo = state.apusCargados.where((a) => a.capituloId == cap.id).toList();
+                              
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ExpansionTile(
+                                  title: Text('${cap.numero}. ${cap.nombre}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  subtitle: Text('${apusCapitulo.length} APUs'),
+                                  children: apusCapitulo.map((apu) {
+                                    final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: Colors.blueAccent.withValues(alpha: 0.1),
+                                        child: Text(
+                                          apu.codigo,
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                        ),
+                                      ),
+                                      title: Text(apu.nombre),
+                                      subtitle: Text('Cantidad: ${apu.cantidad.toStringAsFixed(2)} ${apu.unidad}'),
+                                      trailing: Text(
+                                        '\$${unitPrice.toStringAsFixed(2)}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
-                              ),
-                              title: Text(apu.nombre),
-                              subtitle: Text('Cantidad: ${apu.cantidad.toStringAsFixed(2)} ${apu.unidad}'),
-                              trailing: Text(
-                                '\$${unitPrice.toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+                              );
+                            },
+                          )
+                        : ListView.builder(
+                            itemCount: state.apusCargados.length,
+                            itemBuilder: (context, index) {
+                              final apu = state.apusCargados[index];
+                              final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.blueAccent.withValues(alpha: 0.1),
+                                    child: Text(
+                                      apu.codigo,
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                    ),
+                                  ),
+                                  title: Text(apu.nombre),
+                                  subtitle: Text('Cantidad: ${apu.cantidad.toStringAsFixed(2)} ${apu.unidad}'),
+                                  trailing: Text(
+                                    '\$${unitPrice.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                     ),
                   ],
                 ),

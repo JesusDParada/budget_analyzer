@@ -6,9 +6,11 @@ import 'package:flutter/foundation.dart';
 import 'package:budget_analyzer/domain/models/project.dart';
 import 'package:budget_analyzer/domain/models/apu.dart';
 import 'package:budget_analyzer/domain/models/insumo.dart';
+import 'package:budget_analyzer/domain/models/capitulo.dart';
 import 'package:budget_analyzer/domain/repositories/i_apu_repository.dart';
 import 'package:budget_analyzer/data/local_db/database_helper.dart';
 import 'package:budget_analyzer/core/utils/xlsx_cached_value_reader.dart';
+import 'package:budget_analyzer/core/utils/apu_insumos_parser.dart';
 
 class ExcelApuRepository implements IApuRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
@@ -29,12 +31,17 @@ class ExcelApuRepository implements IApuRepository {
   }
 
   @override
+  Future<List<Capitulo>> getCapitulosByProject(int projectId) async {
+    return await _dbHelper.getCapitulosByProject(projectId);
+  }
+
+  @override
   Future<ApuExtractionResult> loadApusFromFile(String filePath, String projectName) async {
     // 1. Leer el archivo en bytes
     final bytes = await File(filePath).readAsBytes();
 
     // 2. Extraer APUs en un Isolate para no bloquear el hilo principal (UI freeze)
-    final apusList = await Isolate.run(() => extractApusFromBytes(bytes));
+    final extractionResult = await Isolate.run(() => extractApusFromBytes(bytes));
 
     // 3. Guardar Proyecto en la BD
     final projectId = await _dbHelper.insertProject(
@@ -44,30 +51,44 @@ class ExcelApuRepository implements IApuRepository {
       ),
     );
 
+    // Guardar capítulos en BD y recuperar sus IDs
+    final capitulosToSave = extractionResult.capitulos.map((cap) {
+      return Capitulo(
+        numero: cap.numero,
+        nombre: cap.nombre,
+        projectId: projectId,
+      );
+    }).toList();
+    
+    final savedCapitulos = await _dbHelper.insertCapitulos(capitulosToSave);
+
+    // Create a map to find capituloId by chapter number
+    final capIdMap = { for (var cap in savedCapitulos) cap.numero: cap.id };
+
     // Asociar projectId a todas las APUs extraídas
-    final apusWithProject = apusList.map((apu) {
+    final apusWithProject = extractionResult.apus.map((apu) {
       return Apu(
         codigo: apu.codigo,
         nombre: apu.nombre,
         unidad: apu.unidad,
         projectId: projectId,
+        capituloId: apu.capituloId != null ? capIdMap[apu.capituloId] : null,
         cantidad: apu.cantidad,
         valorUnitario: apu.valorUnitario,
         bac: apu.bac,
         memoriaJson: apu.memoriaJson,
         detalleJson: apu.detalleJson,
-        items: apu.items,
+        insumos: apu.insumos,
       );
     }).toList();
 
     // 4. Guardar en Base de Datos Local
-    await _dbHelper.insertInsumos(const []);
     await _dbHelper.insertApus(apusWithProject);
 
-    return ApuExtractionResult(apus: apusWithProject, insumos: const []);
+    return ApuExtractionResult(capitulos: savedCapitulos, apus: apusWithProject, insumos: const []);
   }
 
-  static List<Apu> extractApusFromBytes(List<int> bytes) {
+  static ApuExtractionResult extractApusFromBytes(List<int> bytes) {
     final sw = Stopwatch()..start();
     
     // Use the xlsx XML reader to get cached formula values
@@ -85,14 +106,33 @@ class ExcelApuRepository implements IApuRepository {
     }
 
     List<Apu> apusList = [];
+    List<Capitulo> capitulosList = [];
     final codePattern = RegExp(r'^\d+(\.\d+)+$'); // 1.1, 2.1, etc.
+    final chapterPattern = RegExp(r'^(\d+)\.\s*(.+)$'); // 1. MAPOSTERIA
 
     int serializeTime = 0;
+    int currentChapterNumber = 0;
 
     for (int i = 0; i < presupuestoSheet.maxRows; i++) {
       var row = presupuestoSheet.row(i);
-      if (row.length > 3) {
+      if (row.length > 2) {
         var rawCode = row[1]?.value?.toString().trim() ?? '';
+        var colC = row.length > 2 ? row[2]?.value?.toString().trim() ?? '' : '';
+        
+        final matchB = chapterPattern.firstMatch(rawCode);
+        final matchC = chapterPattern.firstMatch(colC);
+        final match = matchB ?? matchC;
+        
+        if (match != null && !codePattern.hasMatch(rawCode) && !codePattern.hasMatch(colC)) {
+           currentChapterNumber = int.parse(match.group(1)!);
+           capitulosList.add(Capitulo(
+             projectId: 0, 
+             numero: currentChapterNumber, 
+             nombre: match.group(2)!.trim(),
+           ));
+           continue;
+        }
+
         if (codePattern.hasMatch(rawCode)) {
           final codigo = rawCode;
 
@@ -121,6 +161,18 @@ class ExcelApuRepository implements IApuRepository {
           String? memoriaJson = _serializeSheet(excel, 'M-$codigo', cachedReader);
           serializeTime += serSw.elapsedMilliseconds;
 
+          List<Insumo> extractedInsumos = [];
+          if (detalleJson != null) {
+            final parsedInsumos = ApuInsumosParser.parse(detalleJson);
+            extractedInsumos = parsedInsumos.map((i) => Insumo(
+              activityId: 0, // Will be assigned automatically by DatabaseHelper
+              descripcion: i.descripcion,
+              unidad: i.unidad,
+              valorUnitario: i.precioUnitario,
+              cantidad: i.cantidad,
+            )).toList();
+          }
+
           apusList.add(Apu(
             codigo: codigo,
             nombre: nombre,
@@ -128,9 +180,10 @@ class ExcelApuRepository implements IApuRepository {
             cantidad: cantidad,
             valorUnitario: valorUnitario,
             bac: bac,
+            capituloId: currentChapterNumber > 0 ? currentChapterNumber : null,
             detalleJson: detalleJson,
             memoriaJson: memoriaJson,
-            items: const [], // No requerimos poblar la lista para otras vistas
+            insumos: extractedInsumos,
           ));
         }
       }
@@ -139,7 +192,7 @@ class ExcelApuRepository implements IApuRepository {
     debugPrint('DEBUG: Serialización JSON tomó $serializeTime ms');
     debugPrint('DEBUG: Procesamiento de ${apusList.length} APUs tomó ${sw.elapsedMilliseconds} ms total');
     
-    return apusList;
+    return ApuExtractionResult(capitulos: capitulosList, apus: apusList, insumos: const []);
   }
 
 

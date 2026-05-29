@@ -1,6 +1,6 @@
 class CutRecord {
   final String id;
-  final String apuCodigo;
+  final int activityId;
   final int cutNumber;
   final double activityQuantity;
   final DateTime date;
@@ -8,7 +8,7 @@ class CutRecord {
 
   CutRecord({
     required this.id,
-    required this.apuCodigo,
+    required this.activityId,
     required this.cutNumber,
     required this.activityQuantity,
     required this.date,
@@ -18,7 +18,7 @@ class CutRecord {
   factory CutRecord.fromMap(Map<String, dynamic> map, {List<CutInsumoPurchase> purchases = const []}) {
     return CutRecord(
       id: map['id'] as String,
-      apuCodigo: map['apuCodigo'] as String,
+      activityId: map['activityId'] as int,
       cutNumber: map['cutNumber'] as int,
       activityQuantity: (map['activityQuantity'] as num).toDouble(),
       date: DateTime.parse(map['date'] as String),
@@ -29,7 +29,7 @@ class CutRecord {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'apuCodigo': apuCodigo,
+      'activityId': activityId,
       'cutNumber': cutNumber,
       'activityQuantity': activityQuantity,
       'date': date.toIso8601String(),

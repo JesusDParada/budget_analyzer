@@ -1,39 +1,7 @@
 import 'insumo.dart';
 
-class ApuItem {
-  final String apuCodigo;
-  final String insumoCodigo;
-  final Insumo? insumo;
-  final double cantidad;
-
-  ApuItem({
-    required this.apuCodigo,
-    required this.insumoCodigo,
-    this.insumo,
-    required this.cantidad,
-  });
-
-  double get costoParcial => (insumo?.valorUnitario ?? 0.0) * cantidad;
-
-  factory ApuItem.fromMap(Map<String, dynamic> map, {Insumo? insumo}) {
-    return ApuItem(
-      apuCodigo: map['apuCodigo'] as String,
-      insumoCodigo: map['insumoCodigo'] as String,
-      cantidad: (map['cantidad'] as num).toDouble(),
-      insumo: insumo,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'apuCodigo': apuCodigo,
-      'insumoCodigo': insumoCodigo,
-      'cantidad': cantidad,
-    };
-  }
-}
-
 class Apu {
+  final int? id;
   final String codigo;
   final String nombre;
   final String unidad;
@@ -43,9 +11,11 @@ class Apu {
   final double bac;
   final String? memoriaJson;
   final String? detalleJson;
-  final List<ApuItem> items;
+  final int? capituloId;
+  final List<Insumo> insumos;
 
   Apu({
+    this.id,
     required this.codigo,
     required this.nombre,
     required this.unidad,
@@ -55,13 +25,15 @@ class Apu {
     this.bac = 0.0,
     this.memoriaJson,
     this.detalleJson,
-    this.items = const [],
+    this.capituloId,
+    this.insumos = const [],
   });
 
-  double get costoTotal => valorUnitario > 0 ? valorUnitario : items.fold(0.0, (sum, item) => sum + item.costoParcial);
+  double get costoTotal => valorUnitario > 0 ? valorUnitario : insumos.fold(0.0, (sum, i) => sum + i.costoParcial);
 
-  factory Apu.fromMap(Map<String, dynamic> map, {List<ApuItem> items = const []}) {
+  factory Apu.fromMap(Map<String, dynamic> map, {List<Insumo> insumos = const []}) {
     return Apu(
+      id: map['id'] as int?,
       codigo: map['codigo'] as String,
       nombre: map['nombre'] as String,
       unidad: map['unidad'] as String,
@@ -71,12 +43,14 @@ class Apu {
       bac: (map['bac'] as num?)?.toDouble() ?? 0.0,
       memoriaJson: map['memoriaJson'] as String?,
       detalleJson: map['detalleJson'] as String?,
-      items: items,
+      capituloId: map['capituloId'] as int?,
+      insumos: insumos,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
+      if (id != null) 'id': id,
       'codigo': codigo,
       'nombre': nombre,
       'unidad': unidad,
@@ -86,6 +60,7 @@ class Apu {
       'bac': bac,
       if (memoriaJson != null) 'memoriaJson': memoriaJson,
       if (detalleJson != null) 'detalleJson': detalleJson,
+      if (capituloId != null) 'capituloId': capituloId,
     };
   }
 }

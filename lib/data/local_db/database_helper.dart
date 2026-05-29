@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:budget_analyzer/domain/models/project.dart';
 import 'package:budget_analyzer/domain/models/apu.dart';
 import 'package:budget_analyzer/domain/models/insumo.dart';
+import 'package:budget_analyzer/domain/models/capitulo.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -30,136 +31,27 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
   }
 
   Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
-    const textType = 'TEXT NOT NULL';
-    const doubleType = 'REAL NOT NULL';
-    const idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
-
-    if (oldVersion < 2) {
-      await db.execute('''
-CREATE TABLE IF NOT EXISTS inventory_issues (
-  id $textType PRIMARY KEY,
-  apuCodigo $textType,
-  materialName $textType,
-  quantity $doubleType,
-  totalCost $doubleType,
-  date $textType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
-)
-''');
-
-      await db.execute('''
-CREATE TABLE IF NOT EXISTS field_progress (
-  id $textType PRIMARY KEY,
-  apuCodigo $textType,
-  quantity $doubleType,
-  date $textType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
-)
-''');
-    }
-
-    if (oldVersion < 3) {
-      // Recreate schema to support projects and detailed sheets
+    // Drop all old tables and recreate with the new unified schema (v7)
+    if (oldVersion < 7) {
+      await db.execute('DROP TABLE IF EXISTS cut_insumo_purchases');
+      await db.execute('DROP TABLE IF EXISTS cut_records');
       await db.execute('DROP TABLE IF EXISTS apu_items');
+      await db.execute('DROP TABLE IF EXISTS insumos');
       await db.execute('DROP TABLE IF EXISTS apus');
+      await db.execute('DROP TABLE IF EXISTS activities');
+      await db.execute('DROP TABLE IF EXISTS field_progress');
+      await db.execute('DROP TABLE IF EXISTS inventory_issues');
+      await db.execute('DROP TABLE IF EXISTS capitulos');
       await db.execute('DROP TABLE IF EXISTS projects');
 
-      await db.execute('''
-CREATE TABLE projects (
-  id $idType,
-  name $textType UNIQUE,
-  date $textType
-)
-''');
-
-      await db.execute('''
-CREATE TABLE apus (
-  id $idType,
-  projectId INTEGER NOT NULL,
-  codigo $textType,
-  nombre $textType,
-  unidad $textType,
-  cantidad $doubleType,
-  valorUnitario $doubleType,
-  bac $doubleType,
-  memoriaJson TEXT,
-  detalleJson TEXT,
-  FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
-)
-''');
-
-      await db.execute('''
-CREATE TABLE apu_items (
-  id $idType,
-  apuCodigo $textType,
-  insumoCodigo $textType,
-  cantidad $doubleType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE,
-  FOREIGN KEY (insumoCodigo) REFERENCES insumos (codigo) ON DELETE CASCADE
-)
-''');
-    }
-
-    if (oldVersion < 4) {
-      await db.execute('DROP TABLE IF EXISTS inventory_issues');
-      await db.execute('DROP TABLE IF EXISTS field_progress');
-
-      await db.execute('''
-CREATE TABLE cut_records (
-  id $textType PRIMARY KEY,
-  apuCodigo $textType,
-  cutNumber INTEGER NOT NULL,
-  activityQuantity $doubleType,
-  date $textType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
-)
-''');
-
-      await db.execute('''
-CREATE TABLE cut_insumo_purchases (
-  id $textType PRIMARY KEY,
-  cutRecordId $textType,
-  insumoDescription $textType,
-  realPrice $doubleType,
-  purchasedQuantity $doubleType,
-  FOREIGN KEY (cutRecordId) REFERENCES cut_records (id) ON DELETE CASCADE
-)
-''');
-    }
-
-    if (oldVersion < 5) {
-      await db.execute('DROP TABLE IF EXISTS cut_records');
-      await db.execute('DROP TABLE IF EXISTS cut_insumo_purchases');
-
-      await db.execute('''
-CREATE TABLE cut_records (
-  id $textType PRIMARY KEY,
-  apuCodigo $textType,
-  cutNumber INTEGER NOT NULL,
-  activityQuantity $doubleType,
-  date $textType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
-)
-''');
-
-      await db.execute('''
-CREATE TABLE cut_insumo_purchases (
-  id $textType PRIMARY KEY,
-  cutRecordId $textType,
-  insumoDescription $textType,
-  realPrice $doubleType,
-  purchasedQuantity $doubleType,
-  consumedQuantity $doubleType,
-  FOREIGN KEY (cutRecordId) REFERENCES cut_records (id) ON DELETE CASCADE
-)
-''');
+      await _createDB(db, newVersion);
     }
   }
 
@@ -177,20 +69,20 @@ CREATE TABLE projects (
 ''');
 
     await db.execute('''
-CREATE TABLE insumos (
+CREATE TABLE capitulos (
   id $idType,
-  codigo $textType UNIQUE,
-  descripcion $textType,
-  unidad $textType,
-  valorUnitario $doubleType,
-  tipo $textType
+  projectId INTEGER NOT NULL,
+  numero INTEGER NOT NULL,
+  nombre $textType,
+  FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
 )
 ''');
 
     await db.execute('''
-CREATE TABLE apus (
+CREATE TABLE activities (
   id $idType,
   projectId INTEGER NOT NULL,
+  capituloId INTEGER,
   codigo $textType,
   nombre $textType,
   unidad $textType,
@@ -199,29 +91,31 @@ CREATE TABLE apus (
   bac $doubleType,
   memoriaJson TEXT,
   detalleJson TEXT,
-  FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE
+  FOREIGN KEY (projectId) REFERENCES projects (id) ON DELETE CASCADE,
+  FOREIGN KEY (capituloId) REFERENCES capitulos (id) ON DELETE SET NULL
 )
 ''');
 
     await db.execute('''
-CREATE TABLE apu_items (
+CREATE TABLE insumos (
   id $idType,
-  apuCodigo $textType,
-  insumoCodigo $textType,
+  activityId INTEGER NOT NULL,
+  descripcion $textType,
+  unidad $textType,
+  valorUnitario $doubleType,
   cantidad $doubleType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE,
-  FOREIGN KEY (insumoCodigo) REFERENCES insumos (codigo) ON DELETE CASCADE
+  FOREIGN KEY (activityId) REFERENCES activities (id) ON DELETE CASCADE
 )
 ''');
 
     await db.execute('''
 CREATE TABLE cut_records (
   id $textType PRIMARY KEY,
-  apuCodigo $textType,
+  activityId INTEGER NOT NULL,
   cutNumber INTEGER NOT NULL,
   activityQuantity $doubleType,
   date $textType,
-  FOREIGN KEY (apuCodigo) REFERENCES apus (codigo) ON DELETE CASCADE
+  FOREIGN KEY (activityId) REFERENCES activities (id) ON DELETE CASCADE
 )
 ''');
 
@@ -255,87 +149,127 @@ CREATE TABLE cut_insumo_purchases (
     return result.map((json) => Project.fromMap(json)).toList();
   }
 
-  // --- Operaciones para Insumos ---
+  // --- Operaciones para Capítulos ---
 
-  Future<void> insertInsumos(List<Insumo> insumos) async {
+  Future<List<Capitulo>> insertCapitulos(List<Capitulo> capitulos) async {
     final db = await instance.database;
     final batch = db.batch();
-    for (var insumo in insumos) {
-      batch.insert('insumos', insumo.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    for (var cap in capitulos) {
+      batch.insert('capitulos', cap.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    await batch.commit(noResult: true);
+    final results = await batch.commit();
+    List<Capitulo> savedCapitulos = [];
+    for (int i = 0; i < capitulos.length; i++) {
+      savedCapitulos.add(Capitulo(
+        id: results[i] as int,
+        projectId: capitulos[i].projectId,
+        numero: capitulos[i].numero,
+        nombre: capitulos[i].nombre,
+      ));
+    }
+    return savedCapitulos;
+  }
+
+  Future<List<Capitulo>> getCapitulosByProject(int projectId) async {
+    final db = await instance.database;
+    final result = await db.query('capitulos', where: 'projectId = ?', whereArgs: [projectId], orderBy: 'numero ASC');
+    return result.map((json) => Capitulo.fromMap(json)).toList();
+  }
+
+  Future<List<Capitulo>> getAllCapitulos() async {
+    final db = await instance.database;
+    final result = await db.query('capitulos', orderBy: 'numero ASC');
+    return result.map((json) => Capitulo.fromMap(json)).toList();
+  }
+
+  // --- Operaciones para APUs / Activities ---
+
+  Future<List<Apu>> insertApus(List<Apu> apus) async {
+    final db = await instance.database;
+    final batch = db.batch();
+    
+    // First, insert activities to get their auto-incremented IDs
+    for (var apu in apus) {
+      batch.insert('activities', apu.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    final results = await batch.commit();
+    
+    List<Apu> savedApus = [];
+    final insumoBatch = db.batch();
+    
+    for (int i = 0; i < apus.length; i++) {
+      final activityId = results[i] as int;
+      savedApus.add(Apu(
+        id: activityId,
+        codigo: apus[i].codigo,
+        nombre: apus[i].nombre,
+        unidad: apus[i].unidad,
+        projectId: apus[i].projectId,
+        capituloId: apus[i].capituloId,
+        cantidad: apus[i].cantidad,
+        valorUnitario: apus[i].valorUnitario,
+        bac: apus[i].bac,
+        memoriaJson: apus[i].memoriaJson,
+        detalleJson: apus[i].detalleJson,
+        insumos: apus[i].insumos,
+      ));
+      
+      for (var insumo in apus[i].insumos) {
+        // Ensure activityId is linked to the newly created activity
+        final map = insumo.toMap();
+        map['activityId'] = activityId;
+        // removing null ID just in case
+        map.remove('id');
+        insumoBatch.insert('insumos', map, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    }
+    await insumoBatch.commit(noResult: true);
+    
+    return savedApus;
+  }
+
+  Future<List<Apu>> getAllApus() async {
+    final db = await instance.database;
+    final activityMaps = await db.query('activities');
+    final insumoMaps = await db.query('insumos');
+
+    List<Apu> result = [];
+    for (var activityMap in activityMaps) {
+      final activityId = activityMap['id'] as int;
+      
+      final activityInsumos = insumoMaps
+          .where((i) => i['activityId'] == activityId)
+          .map((map) => Insumo.fromMap(map))
+          .toList();
+
+      result.add(Apu.fromMap(activityMap, insumos: activityInsumos));
+    }
+    return result;
+  }
+
+  Future<List<Apu>> getApusByProject(int projectId) async {
+    final db = await instance.database;
+    final activityMaps = await db.query('activities', where: 'projectId = ?', whereArgs: [projectId]);
+    final insumoMaps = await db.query('insumos');
+
+    List<Apu> result = [];
+    for (var activityMap in activityMaps) {
+      final activityId = activityMap['id'] as int;
+      
+      final activityInsumos = insumoMaps
+          .where((i) => i['activityId'] == activityId)
+          .map((map) => Insumo.fromMap(map))
+          .toList();
+
+      result.add(Apu.fromMap(activityMap, insumos: activityInsumos));
+    }
+    return result;
   }
 
   Future<List<Insumo>> getAllInsumos() async {
     final db = await instance.database;
     final result = await db.query('insumos');
     return result.map((json) => Insumo.fromMap(json)).toList();
-  }
-
-  // --- Operaciones para APUs ---
-
-  Future<void> insertApus(List<Apu> apus) async {
-    final db = await instance.database;
-    final batch = db.batch();
-
-    for (var apu in apus) {
-      batch.insert('apus', apu.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-      for (var item in apu.items) {
-        batch.insert('apu_items', item.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
-    }
-    await batch.commit(noResult: true);
-  }
-
-  Future<List<Apu>> getAllApus() async {
-    final db = await instance.database;
-    final apuMaps = await db.query('apus');
-    
-    final itemMaps = await db.query('apu_items');
-    final insumos = await getAllInsumos();
-    final insumoMap = {for (var i in insumos) i.codigo: i};
-
-    List<Apu> result = [];
-    for (var apuMap in apuMaps) {
-      final apuCodigo = apuMap['codigo'] as String;
-      
-      final apuItemsMaps = itemMaps.where((i) => i['apuCodigo'] == apuCodigo);
-      final List<ApuItem> items = apuItemsMaps.map((map) {
-        final insumo = insumoMap[map['insumoCodigo']];
-        return ApuItem.fromMap(map, insumo: insumo);
-      }).toList();
-
-      result.add(Apu.fromMap(apuMap, items: items));
-    }
-
-    return result;
-  }
-
-  Future<List<Apu>> getApusByProject(int projectId) async {
-    final db = await instance.database;
-    final apuMaps = await db.query('apus', where: 'projectId = ?', whereArgs: [projectId]);
-    
-    final itemMaps = await db.query('apu_items');
-    final insumos = await getAllInsumos();
-    final insumoMap = {for (var i in insumos) i.codigo: i};
-
-    List<Apu> result = [];
-    for (var apuMap in apuMaps) {
-      final apuCodigo = apuMap['codigo'] as String;
-      
-      final apuItemsMaps = itemMaps.where((i) => i['apuCodigo'] == apuCodigo);
-      final List<ApuItem> items = apuItemsMaps.map((map) {
-        final insumo = insumoMap[map['insumoCodigo']];
-        return ApuItem.fromMap(map, insumo: insumo);
-      }).toList();
-
-      result.add(Apu.fromMap(apuMap, items: items));
-    }
-
-    return result;
   }
 
   // --- Operaciones de Cortes (EVM) ---
@@ -350,9 +284,9 @@ CREATE TABLE cut_insumo_purchases (
     });
   }
 
-  Future<List<Map<String, dynamic>>> getCutRecordsForApu(String apuCodigo) async {
+  Future<List<Map<String, dynamic>>> getCutRecordsForActivity(int activityId) async {
     final db = await instance.database;
-    return await db.query('cut_records', where: 'apuCodigo = ?', whereArgs: [apuCodigo], orderBy: 'cutNumber ASC');
+    return await db.query('cut_records', where: 'activityId = ?', whereArgs: [activityId], orderBy: 'cutNumber ASC');
   }
 
   Future<List<Map<String, dynamic>>> getPurchasesForCut(String cutRecordId) async {

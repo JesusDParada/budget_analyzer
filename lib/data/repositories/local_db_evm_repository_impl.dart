@@ -1,12 +1,10 @@
 import 'package:budget_analyzer/domain/models/evm_metrics.dart';
 import 'package:budget_analyzer/domain/repositories/i_evm_repository.dart';
 import 'package:budget_analyzer/data/local_db/database_helper.dart';
-import 'package:budget_analyzer/core/utils/apu_insumos_parser.dart';
 
 class LocalDbEvmRepositoryImpl implements IEvmRepository {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
 
-  // Cantidad total por defecto si no se especifica o lee en el Excel
   final double defaultTotalQuantity = 100.0;
 
   @override
@@ -20,51 +18,36 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
       final totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
       final bac = apu.bac > 0 ? apu.bac : (unitPrice * totalQty);
 
-      // Usamos una clave compuesta única por proyecto ("projectId_codigo")
-      // para evitar colisiones entre proyectos diferentes con el mismo código.
-      final uniqueId = apu.projectId != null ? '${apu.projectId}_${apu.codigo}' : apu.codigo;
-
       return {
-        'id': uniqueId,
+        'id': apu.id,
         'code': apu.codigo,
         'description': apu.nombre,
         'unit_measure': apu.unidad,
         'total_quantity': totalQty,
         'unit_price': unitPrice,
         'bac': bac,
+        'capituloId': apu.capituloId,
       };
     }).toList();
   }
 
   @override
-  Future<EvmMetrics> calculateMetricsForApu(String apuId) async {
-    // Descomponer el apuId (que puede ser compuesto: "projectId_codigo")
-    final parts = apuId.split('_');
-    final int? projectId = parts.length > 1 ? int.tryParse(parts[0]) : null;
-    final String codigo = parts.length > 1 ? parts.sublist(1).join('_') : apuId;
-
-    // Buscar las APUs del proyecto correspondiente si está disponible
-    final apus = projectId != null
-        ? await _dbHelper.getApusByProject(projectId)
-        : await _dbHelper.getAllApus();
+  Future<EvmMetrics> calculateMetricsForApu(int activityId) async {
+    final apus = await _dbHelper.getAllApus();
 
     final apu = apus.firstWhere(
-      (a) => a.codigo == codigo,
-      orElse: () => throw Exception('APU no encontrado: $apuId'),
+      (a) => a.id == activityId,
+      orElse: () => throw Exception('Activity no encontrada: $activityId'),
     );
 
     final double unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
     final double totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
-    // Usamos el BAC extraído directamente de la columna G (Vr. Parcial) si está disponible, sino lo calculamos
     final double bac = apu.bac > 0 ? apu.bac : (unitPrice * totalQty);
 
-    // Obtener Cortes (CutRecords) para calcular AC y EV
-    final cutRecords = await _dbHelper.getCutRecordsForApu(apuId);
+    final cutRecords = await _dbHelper.getCutRecordsForActivity(activityId);
     
     double ac = 0.0;
     double executedQuantity = 0.0;
-    
-    // Lista de registros para la UI
     List<Map<String, dynamic>> cutRecordsUI = [];
 
     for (var cut in cutRecords) {
@@ -75,7 +58,6 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
       
       executedQuantity += cutActQty;
       
-      // Obtener compras de insumos para este corte
       final purchases = await _dbHelper.getPurchasesForCut(cutId);
       double cutInsumosCost = 0.0;
       
@@ -85,7 +67,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
         cutInsumosCost += (realPrice * consumedQty);
       }
       
-      final double cutAc = cutInsumosCost; // AC es la suma de los insumos consumidos
+      final double cutAc = cutInsumosCost;
       ac += cutAc;
       
       cutRecordsUI.add({
@@ -100,33 +82,32 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
 
     final double ev = totalQty > 0 ? (executedQuantity / totalQty) * bac : 0.0;
 
-    // Calcular índices
     final double cpi = ac > 0 ? ev / ac : (ev > 0 ? double.infinity : 1.0);
     final double eac = cpi > 0 && cpi != double.infinity ? bac / cpi : bac;
     final double etc = eac - ac;
 
     return EvmMetrics(
-      apuId: apuId,
+      activityId: activityId,
       ac: ac,
       ev: ev,
       cpi: cpi,
       eac: eac,
       bac: bac,
       etc: etc,
-      evRecords: cutRecordsUI, // Usamos evRecords para mandar los cortes a la UI
+      evRecords: cutRecordsUI,
       acRecords: const [],
     );
   }
 
   @override
-  Future<void> saveCutRecord(String apuId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases) async {
-    final existingCuts = await _dbHelper.getCutRecordsForApu(apuId);
+  Future<void> saveCutRecord(int activityId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases) async {
+    final existingCuts = await _dbHelper.getCutRecordsForActivity(activityId);
     final int nextCutNumber = existingCuts.length + 1;
     final String cutId = DateTime.now().millisecondsSinceEpoch.toString();
 
     final cutMap = {
       'id': cutId,
-      'apuCodigo': apuId,
+      'activityId': activityId,
       'cutNumber': nextCutNumber,
       'activityQuantity': activityQuantity,
       'date': date.toIso8601String(),
@@ -147,26 +128,19 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getApuInsumos(String apuId) async {
-    final parts = apuId.split('_');
-    final int? projectId = parts.length > 1 ? int.tryParse(parts[0]) : null;
-    final String codigo = parts.length > 1 ? parts.sublist(1).join('_') : apuId;
-
-    final apus = projectId != null
-        ? await _dbHelper.getApusByProject(projectId)
-        : await _dbHelper.getAllApus();
-
+  Future<List<Map<String, dynamic>>> getApuInsumos(int activityId) async {
+    final apus = await _dbHelper.getAllApus();
     final apu = apus.firstWhere(
-      (a) => a.codigo == codigo,
-      orElse: () => throw Exception('APU no encontrado: $apuId'),
+      (a) => a.id == activityId,
+      orElse: () => throw Exception('Activity no encontrada: $activityId'),
     );
 
-    final insumos = ApuInsumosParser.parse(apu.detalleJson);
-    return insumos.map((i) => i.toMap()).toList();
+    // Now returning the insumos directly from the unified database table!
+    return apu.insumos.map((i) => i.toMap()).toList();
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getCutRecordsForApu(String apuId) async {
-    return await _dbHelper.getCutRecordsForApu(apuId);
+  Future<List<Map<String, dynamic>>> getCutRecordsForApu(int activityId) async {
+    return await _dbHelper.getCutRecordsForActivity(activityId);
   }
 }

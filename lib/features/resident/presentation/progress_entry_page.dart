@@ -10,30 +10,32 @@ class ProgressEntryPage extends ConsumerStatefulWidget {
 }
 
 class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
-  String? _selectedApuId;
-  final _quantityController = TextEditingController();
+  int? _selectedApuId;
+  final TextEditingController _qtyController = TextEditingController();
 
-  Future<void> _submit() async {
+  void _submitProgress() async {
     if (_selectedApuId == null) return;
     
-    final repo = ref.read(evmRepositoryProvider);
-    final qty = double.tryParse(_quantityController.text) ?? 0.0;
-    
-    // Obtener las compras en borrador para este corte
-    final drafts = ref.read(draftPurchasesProvider)[_selectedApuId] ?? [];
+    final qty = double.tryParse(_qtyController.text);
+    if (qty == null || qty <= 0) return;
 
+    final repo = ref.read(evmRepositoryProvider);
+    final drafts = ref.read(draftPurchasesProvider)[_selectedApuId!] ?? [];
+    
     await repo.saveCutRecord(_selectedApuId!, qty, DateTime.now(), drafts);
-    
-    // Limpiar borrador y formulario
+
+    // Limpiar borrador y refrescar
     ref.read(draftPurchasesProvider.notifier).clearPurchases(_selectedApuId!);
+    _qtyController.clear();
     
-    // Invalida para refrescar datos
     ref.invalidate(apuMetricsProvider(_selectedApuId!));
     ref.invalidate(apuStockProvider(_selectedApuId!));
-    
+    ref.invalidate(sharedStockProvider);
+
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Corte cerrado y guardado correctamente')));
-      _quantityController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Avance físico registrado correctamente')),
+      );
       setState(() {
         _selectedApuId = null;
       });
@@ -42,50 +44,78 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final apusAsync = ref.watch(apuListProvider);
-
-    // Obtener información del borrador para la UI
-    final drafts = _selectedApuId != null ? (ref.watch(draftPurchasesProvider)[_selectedApuId] ?? []) : [];
-    double totalDraftCost = 0.0;
-    for (var d in drafts) {
-      totalDraftCost += d['realPrice'] * d['consumedQuantity'];
+    final apusAsync = ref.watch(apusListProvider);
+    final capitulosAsync = ref.watch(capitulosListProvider);
+    final drafts = _selectedApuId != null ? (ref.watch(draftPurchasesProvider)[_selectedApuId!] ?? []) : [];
+    
+    double insumosCost = 0.0;
+    for (var draft in drafts) {
+      final p = draft['realPrice'] as double;
+      final q = draft['consumedQuantity'] as double;
+      insumosCost += (p * q);
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cerrar Corte Temporal (Avance)')),
+      appBar: AppBar(title: const Text('Registrar Avance Físico')),
       body: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(16.0),
         child: apusAsync.when(
-          data: (apus) => Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                '¿Qué ejecutamos en este corte?',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 40),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                initialValue: _selectedApuId,
-                items: apus.map((apu) {
-                  return DropdownMenuItem(
-                    value: apu['id'] as String,
-                    child: Text(apu['description']),
+          data: (apus) => capitulosAsync.when(
+            data: (capitulos) {
+              List<DropdownMenuItem<int>> buildDropdownItems() {
+                if (capitulos.isEmpty) {
+                  return apus.map((apu) {
+                    return DropdownMenuItem<int>(
+                      value: apu['id'] as int,
+                      child: Text('${apu['code']} - ${apu['description']}'),
+                    );
+                  }).toList();
+                }
+
+                List<DropdownMenuItem<int>> items = [];
+                for (var cap in capitulos) {
+                  items.add(
+                    DropdownMenuItem<int>(
+                      value: null,
+                      enabled: false,
+                      child: Text(
+                        '${cap.numero}. ${cap.nombre}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                      ),
+                    ),
                   );
-                }).toList(),
-                onChanged: (val) {
-                  setState(() => _selectedApuId = val);
-                  _quantityController.clear();
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Seleccionar APU',
-                  border: OutlineInputBorder(),
-                ),
-              ),
+                  final apusCapitulo = apus.where((a) => a['capituloId'] == cap.id).toList();
+                  for (var apu in apusCapitulo) {
+                    items.add(
+                      DropdownMenuItem<int>(
+                        value: apu['id'] as int,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 16.0),
+                          child: Text('${apu['code']} - ${apu['description']}'),
+                        ),
+                      ),
+                    );
+                  }
+                }
+                return items;
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    value: _selectedApuId,
+                    items: buildDropdownItems(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedApuId = val);
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Seleccionar Actividad (APU)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
               const SizedBox(height: 20),
-              
               if (_selectedApuId != null) ...[
                 Card(
                   color: drafts.isEmpty ? Colors.orange.shade50 : Colors.green.shade50,
@@ -100,7 +130,7 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
                         ),
                         const SizedBox(height: 8),
                         Text('${drafts.length} compras preparadas.'),
-                        Text('Subtotal Costo Insumos: \$${totalDraftCost.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Subtotal Costo Insumos: \$${insumosCost.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         if (drafts.isEmpty)
                           const Padding(
                             padding: EdgeInsets.only(top: 8.0),
@@ -112,7 +142,7 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
-                  controller: _quantityController,
+                  controller: _qtyController,
                   style: const TextStyle(fontSize: 32),
                   textAlign: TextAlign.center,
                   decoration: const InputDecoration(
@@ -128,16 +158,20 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
                     backgroundColor: Colors.blueAccent,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed: _submit,
+                  onPressed: _submitProgress,
                   child: const Text('Cerrar Corte (Guarda Almacén y Avance)', style: TextStyle(fontSize: 18)),
                 )
-              ]
-            ],
-          ),
+                ]
+              ],
+            );
+          },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (err, stack) => Center(child: Text('Error: $err')),
         ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, stack) => Center(child: Text('Error: $err')),
       ),
-    );
-  }
+    ),
+  );
+}
 }

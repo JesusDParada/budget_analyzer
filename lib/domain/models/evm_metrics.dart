@@ -1,7 +1,7 @@
 /// Propósito Específico: Modelo que representa las métricas principales de EVM para un APU.
 /// Mapa de Relaciones: Usado por el repositorio de EVM para retornar los cálculos y consumido por la UI.
 class EvmMetrics {
-  final String apuId;
+  final int activityId;
   final double ac;
   final double ev;
   final double cpi;
@@ -12,7 +12,7 @@ class EvmMetrics {
   final List<Map<String, dynamic>> acRecords;
 
   EvmMetrics({
-    required this.apuId,
+    required this.activityId,
     required this.ac,
     required this.ev,
     required this.cpi,

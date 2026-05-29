@@ -6,62 +6,46 @@ class MockEvmRepositoryImpl implements IEvmRepository {
   final List<Map<String, dynamic>> _apus = [
     {'id': 'apu-1', 'code': 'APU-001', 'description': 'Excavación manual', 'unit_measure': 'm3', 'total_quantity': 100.0, 'unit_price': 100.0, 'bac': 10000.0},
     {'id': 'apu-2', 'code': 'APU-002', 'description': 'Concreto 3000 PSI', 'unit_measure': 'm3', 'total_quantity': 50.0, 'unit_price': 300.0, 'bac': 15000.0},
+    {'id': 1, 'code': 'APU-001', 'description': 'Excavación manual', 'unit_measure': 'm3', 'total_quantity': 100.0, 'unit_price': 100.0, 'bac': 10000.0},
+    {'id': 2, 'code': 'APU-002', 'description': 'Concreto 3000 PSI', 'unit_measure': 'm3', 'total_quantity': 50.0, 'unit_price': 300.0, 'bac': 15000.0},
   ];
   
   final List<Map<String, dynamic>> _cutRecords = [];
-  final List<Map<String, dynamic>> _purchases = [];
 
   @override
-  Future<EvmMetrics> calculateMetricsForApu(String apuId) async {
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    final apuData = _apus.firstWhere((apu) => apu['id'] == apuId, orElse: () => throw Exception('APU no encontrado'));
+  Future<EvmMetrics> calculateMetricsForApu(int activityId) async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    
+    final apuData = _apus.firstWhere((apu) => apu['id'] == activityId, orElse: () => throw Exception('Activity no encontrada'));
+    
     final double bac = apuData['bac'];
-    final double totalQuantity = apuData['total_quantity'];
+    final double totalQty = apuData['total_quantity'];
 
-    double ac = 0.0;
-    double executedQuantity = 0.0;
-    List<Map<String, dynamic>> evRecords = [];
+    // Filtrar cortes
+    final cuts = _cutRecords.where((c) => c['apu_id'] == activityId).toList();
+    
+    double ac = 0;
+    double executedQty = 0;
 
-    final cuts = _cutRecords.where((c) => c['apu_id'] == apuId).toList();
     for (var cut in cuts) {
-      final cutId = cut['id'];
-      final actQty = cut['activityQuantity'];
-      executedQuantity += actQty;
-      
-      final cutPurchases = _purchases.where((p) => p['cutRecordId'] == cutId).toList();
-      double insumosCost = 0.0;
-      for (var p in cutPurchases) {
-        insumosCost += p['realPrice'] * p['consumedQuantity'];
-      }
-      final double cutAc = insumosCost;
-      ac += cutAc;
-      
-      evRecords.add({
-        'cutNumber': cut['cutNumber'],
-        'date': cut['date'],
-        'activityQuantity': actQty,
-        'insumosCost': insumosCost,
-        'cutAc': cutAc,
-        'purchases': cutPurchases,
-      });
+      executedQty += cut['activityQuantity'];
+      ac += cut['cutAc'];
     }
 
-    final double ev = totalQuantity > 0 ? (executedQuantity / totalQuantity) * bac : 0.0;
-
-    final double cpi = ac > 0 ? ev / ac : (ev > 0 ? double.infinity : 1.0); 
-    final double eac = cpi > 0 && cpi != double.infinity ? bac / cpi : bac;
-    final double etc = eac - ac;
+    final ev = totalQty > 0 ? (executedQty / totalQty) * bac : 0.0;
+    final cpi = ac > 0 ? ev / ac : 1.0;
+    final eac = cpi > 0 ? bac / cpi : bac;
+    final etc = eac - ac;
 
     return EvmMetrics(
-      apuId: apuId,
+      activityId: activityId,
       ac: ac,
       ev: ev,
       cpi: cpi,
       eac: eac,
       bac: bac,
       etc: etc,
-      evRecords: evRecords,
+      evRecords: cuts,
       acRecords: const [],
     );
   }
@@ -73,32 +57,28 @@ class MockEvmRepositoryImpl implements IEvmRepository {
   }
 
   @override
-  Future<void> saveCutRecord(String apuId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases) async {
+  Future<void> saveCutRecord(int activityId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases) async {
     await Future.delayed(const Duration(milliseconds: 200));
     final String cutId = DateTime.now().millisecondsSinceEpoch.toString();
     
+    double cutAc = 0.0;
+    for (var p in purchases) {
+      cutAc += (p['realPrice'] * p['consumedQuantity']);
+    }
+
     _cutRecords.add({
       'id': cutId,
-      'apu_id': apuId,
-      'cutNumber': _cutRecords.where((c) => c['apu_id'] == apuId).length + 1,
+      'apu_id': activityId,
+      'cutNumber': _cutRecords.where((c) => c['apu_id'] == activityId).length + 1,
       'activityQuantity': activityQuantity,
       'date': date.toIso8601String(),
+      'cutAc': cutAc,
+      'purchases': purchases,
     });
-
-    for (var p in purchases) {
-      _purchases.add({
-        'id': DateTime.now().microsecondsSinceEpoch.toString(),
-        'cutRecordId': cutId,
-        'insumoDescription': p['insumoDescription'],
-        'realPrice': p['realPrice'],
-        'purchasedQuantity': p['purchasedQuantity'],
-        'consumedQuantity': p['consumedQuantity'],
-      });
-    }
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getApuInsumos(String apuId) async {
+  Future<List<Map<String, dynamic>>> getApuInsumos(int activityId) async {
     await Future.delayed(const Duration(milliseconds: 200));
     return [
       {'codigo': 'I001', 'descripcion': 'Cemento', 'unidad': 'BTO', 'precioUnitario': 25000.0, 'cantidad': 10.0},
@@ -106,8 +86,8 @@ class MockEvmRepositoryImpl implements IEvmRepository {
   }
 
   @override
-  Future<List<Map<String, dynamic>>> getCutRecordsForApu(String apuId) async {
+  Future<List<Map<String, dynamic>>> getCutRecordsForApu(int activityId) async {
     await Future.delayed(const Duration(milliseconds: 200));
-    return _cutRecords.where((c) => c['apu_id'] == apuId).toList();
+    return _cutRecords.where((c) => c['apu_id'] == activityId).toList();
   }
 }
