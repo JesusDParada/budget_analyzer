@@ -16,13 +16,6 @@ class NumFormatMaintainer {
   Map<NumFormat, int> _inverseMap = _createInverseMap(_standardNumFormats);
 
   void add(int numFmtId, CustomNumFormat format) {
-    if (_map.containsKey(numFmtId)) {
-      throw Exception('numFmtId $numFmtId already exists');
-    }
-    if (numFmtId < _firstCustomFmtId) {
-      throw Exception(
-          'invalid numFmtId $numFmtId, custom numFmtId must be $_firstCustomFmtId or greater');
-    }
     _map[numFmtId] = format;
     _inverseMap[format] = numFmtId;
     if (numFmtId >= _nextFmtId) {
