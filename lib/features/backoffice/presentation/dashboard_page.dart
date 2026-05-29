@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_analyzer/core/utils/number_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/core/providers/evm_providers.dart';
 
@@ -94,9 +95,9 @@ class _ApuMetricsCard extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('BAC: \$${metrics.bac.toStringAsFixed(2)}'),
-                      Text('EV: \$${metrics.ev.toStringAsFixed(2)}'),
-                      Text('AC: \$${metrics.ac.toStringAsFixed(2)}'),
+                      Text('BAC: \$${formatCurrency(metrics.bac)}'),
+                      Text('EV: \$${formatCurrency(metrics.ev)}'),
+                      Text('AC: \$${formatCurrency(metrics.ac)}'),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -117,8 +118,8 @@ class _ApuMetricsCard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      Text('EAC: \$${metrics.eac.toStringAsFixed(2)}'),
-                      Text('ETC: \$${metrics.etc.toStringAsFixed(2)}'),
+                      Text('EAC: \$${formatCurrency(metrics.eac)}'),
+                      Text('ETC: \$${formatCurrency(metrics.etc)}'),
                     ],
                   ),
                 ],
@@ -161,7 +162,7 @@ class _ApuMetricsCard extends ConsumerWidget {
                                   const SizedBox(height: 4),
                                   Text('Actividad Ejecutada: $actQty'),
                                   Text(
-                                    'AC del Corte (Σ Insumos P×Q): \$${(cutAc as num).toStringAsFixed(2)}',
+                                    'AC del Corte (Σ Insumos P×Q): \$${formatCurrency(cutAc as num)}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -181,7 +182,7 @@ class _ApuMetricsCard extends ConsumerWidget {
                                           left: 8.0,
                                         ),
                                         child: Text(
-                                          '- ${p['insumoDescription']}: \$${p['realPrice']} | Comp: ${p['purchasedQuantity']} | Cons: ${p['consumedQuantity']} (AC \$${((p['realPrice'] as num) * (p['consumedQuantity'] as num)).toStringAsFixed(2)})',
+                                          '- ${p['insumoDescription']}: \$${formatCurrency(p['realPrice'] as num)} | Comp: ${formatQuantity(p['purchasedQuantity'] as num)} | Cons: ${formatQuantity(p['consumedQuantity'] as num)} (AC \$${formatCurrency((p['realPrice'] as num) * (p['consumedQuantity'] as num))})',
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                       ),

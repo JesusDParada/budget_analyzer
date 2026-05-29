@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_analyzer/core/utils/number_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/core/providers/evm_providers.dart';
 
@@ -204,8 +205,8 @@ class _InsumoListItem extends ConsumerWidget {
           Text('PPto: \$${insumo['valorUnitario'] ?? insumo['precioUnitario']} x ${insumo['cantidad']} ${insumo['unidad']}'),
           Text(
             isShared
-                ? 'Stock Compartido: ${stockSobrante.toStringAsFixed(2)} ${insumo['unidad']}'
-                : 'Sobrante en Almacén: ${stockSobrante.toStringAsFixed(2)} ${insumo['unidad']}',
+                ? 'Stock Compartido: ${formatQuantity(stockSobrante)} ${insumo['unidad']}'
+                : 'Sobrante en Almacén: ${formatQuantity(stockSobrante)} ${insumo['unidad']}',
             style: TextStyle(
               color: stockSobrante > 0 ? Colors.green : Colors.grey,
               fontWeight: isShared ? FontWeight.bold : FontWeight.normal,
@@ -348,8 +349,8 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
             children: [
               Text(
                 isShared
-                    ? 'Stock Compartido: ${stockSobrante.toStringAsFixed(2)} ${widget.insumo['unidad']}'
-                    : 'Sobrante Actual: ${stockSobrante.toStringAsFixed(2)} ${widget.insumo['unidad']}',
+                    ? 'Stock Compartido: ${formatQuantity(stockSobrante)} ${widget.insumo['unidad']}'
+                    : 'Sobrante Actual: ${formatQuantity(stockSobrante)} ${widget.insumo['unidad']}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
@@ -395,7 +396,7 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Consumo no registrado: Te faltan ${(consumed - maxAuthorized).toStringAsFixed(2)} comprados para cubrir este consumo.',
+                          'Consumo no registrado: Te faltan ${formatQuantity(consumed - maxAuthorized)} comprados para cubrir este consumo.',
                           style: const TextStyle(
                               color: Colors.deepOrange, fontSize: 12),
                         ),
@@ -450,7 +451,7 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                '${portionQty.toStringAsFixed(2)} ${widget.insumo['unidad']}',
+                                '${formatQuantity(portionQty)} ${widget.insumo['unidad']}',
                                 style: TextStyle(
                                     fontSize: 11, color: Colors.grey.shade600),
                               ),
@@ -582,7 +583,7 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
                         final cost = p['realPrice'] * p['consumedQuantity'];
                         return ListTile(
                           title: Text(p['insumoDescription']),
-                          subtitle: Text('Comp: ${p['purchasedQuantity']} | Cons: ${p['consumedQuantity']}\n\$${p['realPrice']} x ${p['consumedQuantity']} (Cons) = \$${cost.toStringAsFixed(2)}'),
+                          subtitle: Text('Comp: ${formatQuantity(p['purchasedQuantity'] as num)} | Cons: ${formatQuantity(p['consumedQuantity'] as num)}\n\$${formatCurrency(p['realPrice'] as num)} x ${formatQuantity(p['consumedQuantity'] as num)} (Cons) = \$${formatCurrency(cost)}'),
                           isThreeLine: true,
                           trailing: IconButton(
                             icon: const Icon(Icons.delete, color: Colors.red),
@@ -601,7 +602,7 @@ class _AddPurchaseDialogState extends ConsumerState<_AddPurchaseDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text('Subtotal Insumos:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('\$${totalCost.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                Text('\$${formatCurrency(totalCost)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               ],
             ),
           ),

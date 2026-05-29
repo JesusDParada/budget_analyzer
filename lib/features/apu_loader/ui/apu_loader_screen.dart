@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_analyzer/core/utils/number_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/features/apu_loader/providers/apu_provider.dart';
 import 'package:budget_analyzer/core/providers/project_providers.dart';
@@ -264,9 +265,9 @@ class ApuLoaderScreen extends ConsumerWidget {
                                         ),
                                       ),
                                       title: Text(apu.nombre),
-                                      subtitle: Text('Cantidad: ${apu.cantidad.toStringAsFixed(2)} ${apu.unidad}'),
+                                      subtitle: Text('Cantidad: ${formatQuantity(apu.cantidad)} ${apu.unidad}'),
                                       trailing: Text(
-                                        '\$${unitPrice.toStringAsFixed(2)}',
+                                        '\$${formatCurrency(unitPrice)}',
                                         style: const TextStyle(fontWeight: FontWeight.bold),
                                       ),
                                     );
@@ -291,9 +292,9 @@ class ApuLoaderScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   title: Text(apu.nombre),
-                                  subtitle: Text('Cantidad: ${apu.cantidad.toStringAsFixed(2)} ${apu.unidad}'),
+                                  subtitle: Text('Cantidad: ${formatQuantity(apu.cantidad)} ${apu.unidad}'),
                                   trailing: Text(
-                                    '\$${unitPrice.toStringAsFixed(2)}',
+                                    '\$${formatCurrency(unitPrice)}',
                                     style: const TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                 ),

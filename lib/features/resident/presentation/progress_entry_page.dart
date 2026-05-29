@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:budget_analyzer/core/utils/number_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/core/providers/evm_providers.dart';
 
@@ -130,7 +131,7 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
                         ),
                         const SizedBox(height: 8),
                         Text('${drafts.length} compras preparadas.'),
-                        Text('Subtotal Costo Insumos: \$${insumosCost.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('Subtotal Costo Insumos: \$${formatCurrency(insumosCost)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                         if (drafts.isEmpty)
                           const Padding(
                             padding: EdgeInsets.only(top: 8.0),
