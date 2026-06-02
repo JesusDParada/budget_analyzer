@@ -1,0 +1,45 @@
+name: Build macOS App
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build for macOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS app
+        run: flutter build macos --release
+
+      - name: Package macOS app
+        run: |
+          # El archivo .app es en realidad una carpeta. 
+          # Lo comprimimos en .zip para que GitHub no rompa la estructura del instalador
+          mkdir -p payload
+          cp -r build/macos/Build/Products/Release/budget_analyzer.app payload/
+          cd payload
+          zip -ry budget_analyzer_macos.zip budget_analyzer.app
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: budget_analyzer-macos-app
+          path: payload/budget_analyzer_macos.zip
+          retention-days: 7
