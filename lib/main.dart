@@ -7,10 +7,8 @@ import 'package:budget_analyzer/features/apu_loader/ui/project_management_screen
 
 void main() {
   runApp(
-    // ProviderScope es necesario para usar Riverpod
-    const ProviderScope(
-      child: MyApp(),
-    ),
+    // ProviderScope es necesario para usar Riverpod, Hola mundoo :)
+    const ProviderScope(child: MyApp()),
   );
 }
 
@@ -39,7 +37,7 @@ class MainNavigationPage extends StatefulWidget {
 
 class _MainNavigationPageState extends State<MainNavigationPage> {
   int _currentIndex = 0;
-  
+
   final List<Widget> _pages = [
     const DashboardPage(),
     const GlobalExpenseEntryPage(),
@@ -56,10 +54,22 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.attach_money), label: 'Gastos'),
-          BottomNavigationBarItem(icon: Icon(Icons.construction), label: 'Avance'),
-          BottomNavigationBarItem(icon: Icon(Icons.business_center), label: 'Proyecto'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.attach_money),
+            label: 'Gastos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.construction),
+            label: 'Avance',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.business_center),
+            label: 'Proyecto',
+          ),
         ],
       ),
     );
