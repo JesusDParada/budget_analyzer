@@ -6,6 +6,7 @@ import 'package:budget_analyzer/domain/models/capitulo.dart';
 import 'package:budget_analyzer/data/repositories/excel_apu_repository.dart';
 import 'package:budget_analyzer/core/providers/project_providers.dart';
 import 'package:budget_analyzer/data/local_db/database_helper.dart';
+import 'package:budget_analyzer/domain/models/insumo.dart';
 
 final apuRepositoryProvider = Provider<ExcelApuRepository>((ref) {
   return ExcelApuRepository();
@@ -87,8 +88,8 @@ class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
         ref.invalidate(projectListProvider);
         
         // Asignar el proyecto activo en la app
-        if (extractionResult.apus.isNotEmpty) {
-          final projectId = extractionResult.apus.first.projectId;
+        if (extractionResult.projectId != null) {
+          final projectId = extractionResult.projectId;
           final project = Project(
             id: projectId,
             name: projectName,
@@ -110,6 +111,70 @@ class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
         isLoading: false,
         error: 'Error al cargar el archivo: $e',
       );
+    }
+  }
+
+  Future<void> createProject(String name) async {
+    try {
+      final project = Project(name: name, date: DateTime.now().toIso8601String());
+      final createdProject = await _repository.createProject(project);
+      
+      ref.invalidate(projectListProvider);
+      ref.read(activeProjectProvider.notifier).selectProject(createdProject);
+      
+      state = state.copyWith(capitulosCargados: [], apusCargados: []);
+    } catch (e) {
+      state = state.copyWith(error: 'Error al crear proyecto: $e');
+    }
+  }
+
+  Future<void> createCapitulo(int projectId, int numero, String nombre) async {
+    try {
+      final capitulo = Capitulo(projectId: projectId, numero: numero, nombre: nombre);
+      final createdCapitulo = await _repository.createCapitulo(capitulo);
+      
+      state = state.copyWith(
+        capitulosCargados: [...state.capitulosCargados, createdCapitulo]..sort((a, b) => a.numero.compareTo(b.numero)),
+      );
+    } catch (e) {
+      state = state.copyWith(error: 'Error al crear capítulo: $e');
+    }
+  }
+
+  Future<void> createActivity(int capituloId, String codigo, String nombre, String unidad, double cantidad, double valorUnitario, double bac, List<Insumo> insumos) async {
+    try {
+      List<Insumo> finalInsumos = List.from(insumos);
+      // Si no se proporcionaron insumos, creamos uno por defecto con el mismo nombre y valor unitario
+      if (finalInsumos.isEmpty && valorUnitario > 0) {
+        finalInsumos.add(
+          Insumo(
+            activityId: 0, // Se actualizará en DatabaseHelper
+            descripcion: nombre,
+            unidad: unidad,
+            valorUnitario: valorUnitario,
+            cantidad: 1.0, // 1 unidad del insumo por cada unidad de actividad
+          )
+        );
+      }
+
+      final apu = Apu(
+        codigo: codigo,
+        nombre: nombre,
+        unidad: unidad,
+        cantidad: cantidad,
+        valorUnitario: valorUnitario,
+        bac: bac,
+        capituloId: capituloId,
+        insumos: finalInsumos,
+      );
+      
+      final createdApu = await _repository.createApu(apu);
+      
+      state = state.copyWith(
+        apusCargados: [...state.apusCargados, createdApu],
+      );
+    } catch (e) {
+      state = state.copyWith(error: 'Error al crear actividad: $e');
     }
   }
 }

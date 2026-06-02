@@ -4,8 +4,6 @@ import 'package:budget_analyzer/domain/repositories/i_evm_repository.dart';
 /// Propósito Específico: Implementación Mock del repositorio de EVM para pruebas de UI y cálculos locales.
 class MockEvmRepositoryImpl implements IEvmRepository {
   final List<Map<String, dynamic>> _apus = [
-    {'id': 'apu-1', 'code': 'APU-001', 'description': 'Excavación manual', 'unit_measure': 'm3', 'total_quantity': 100.0, 'unit_price': 100.0, 'bac': 10000.0},
-    {'id': 'apu-2', 'code': 'APU-002', 'description': 'Concreto 3000 PSI', 'unit_measure': 'm3', 'total_quantity': 50.0, 'unit_price': 300.0, 'bac': 15000.0},
     {'id': 1, 'code': 'APU-001', 'description': 'Excavación manual', 'unit_measure': 'm3', 'total_quantity': 100.0, 'unit_price': 100.0, 'bac': 10000.0},
     {'id': 2, 'code': 'APU-002', 'description': 'Concreto 3000 PSI', 'unit_measure': 'm3', 'total_quantity': 50.0, 'unit_price': 300.0, 'bac': 15000.0},
   ];
@@ -59,7 +57,7 @@ class MockEvmRepositoryImpl implements IEvmRepository {
   @override
   Future<void> saveCutRecord(int activityId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases) async {
     await Future.delayed(const Duration(milliseconds: 200));
-    final String cutId = DateTime.now().millisecondsSinceEpoch.toString();
+    final int cutId = DateTime.now().millisecondsSinceEpoch;
     
     double cutAc = 0.0;
     for (var p in purchases) {
@@ -89,5 +87,11 @@ class MockEvmRepositoryImpl implements IEvmRepository {
   Future<List<Map<String, dynamic>>> getCutRecordsForApu(int activityId) async {
     await Future.delayed(const Duration(milliseconds: 200));
     return _cutRecords.where((c) => c['apu_id'] == activityId).toList();
+  }
+
+  @override
+  Future<void> saveGlobalExpense(String insumoDesc, double totalRealPrice, double totalConsumedQty, List<int> selectedActivityIds) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    // Mock implementation for UI tests
   }
 }

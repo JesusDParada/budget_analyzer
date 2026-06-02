@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/features/backoffice/presentation/dashboard_page.dart';
-import 'package:budget_analyzer/features/warehouse/presentation/inventory_issue_page.dart';
+import 'package:budget_analyzer/features/warehouse/presentation/global_expense_entry_page.dart';
 import 'package:budget_analyzer/features/resident/presentation/progress_entry_page.dart';
-import 'package:budget_analyzer/features/apu_loader/ui/apu_loader_screen.dart';
+import 'package:budget_analyzer/features/apu_loader/ui/project_management_screen.dart';
 
 void main() {
   runApp(
@@ -42,9 +42,9 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   
   final List<Widget> _pages = [
     const DashboardPage(),
-    const InventoryIssuePage(),
+    const GlobalExpenseEntryPage(),
     const ProgressEntryPage(),
-    const ApuLoaderScreen(),
+    const ProjectManagementScreen(),
   ];
 
   @override
@@ -57,9 +57,9 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.inventory), label: 'Almacén'),
+          BottomNavigationBarItem(icon: Icon(Icons.attach_money), label: 'Gastos'),
           BottomNavigationBarItem(icon: Icon(Icons.construction), label: 'Avance'),
-          BottomNavigationBarItem(icon: Icon(Icons.upload_file), label: 'APUs'),
+          BottomNavigationBarItem(icon: Icon(Icons.business_center), label: 'Proyecto'),
         ],
       ),
     );

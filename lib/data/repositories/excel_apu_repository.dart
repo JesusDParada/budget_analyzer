@@ -36,6 +36,39 @@ class ExcelApuRepository implements IApuRepository {
   }
 
   @override
+  Future<Project> createProject(Project project) async {
+    final id = await _dbHelper.insertProject(project);
+    return Project(id: id, name: project.name, date: project.date);
+  }
+
+  @override
+  Future<Capitulo> createCapitulo(Capitulo capitulo) async {
+    final id = await _dbHelper.insertCapitulo(capitulo);
+    return Capitulo(
+      id: id, 
+      projectId: capitulo.projectId, 
+      numero: capitulo.numero, 
+      nombre: capitulo.nombre,
+    );
+  }
+
+  @override
+  Future<Apu> createApu(Apu apu) async {
+    final id = await _dbHelper.insertApu(apu);
+    return Apu(
+      id: id,
+      codigo: apu.codigo,
+      nombre: apu.nombre,
+      unidad: apu.unidad,
+      cantidad: apu.cantidad,
+      valorUnitario: apu.valorUnitario,
+      bac: apu.bac,
+      capituloId: apu.capituloId,
+      insumos: apu.insumos,
+    );
+  }
+
+  @override
   Future<ApuExtractionResult> loadApusFromFile(String filePath, String projectName) async {
     // 1. Leer el archivo en bytes
     final bytes = await File(filePath).readAsBytes();
@@ -65,13 +98,12 @@ class ExcelApuRepository implements IApuRepository {
     // Create a map to find capituloId by chapter number
     final capIdMap = { for (var cap in savedCapitulos) cap.numero: cap.id };
 
-    // Asociar projectId a todas las APUs extraídas
+    // Asociar capituloId a todas las APUs extraídas
     final apusWithProject = extractionResult.apus.map((apu) {
       return Apu(
         codigo: apu.codigo,
         nombre: apu.nombre,
         unidad: apu.unidad,
-        projectId: projectId,
         capituloId: apu.capituloId != null ? capIdMap[apu.capituloId] : null,
         cantidad: apu.cantidad,
         valorUnitario: apu.valorUnitario,
@@ -85,7 +117,12 @@ class ExcelApuRepository implements IApuRepository {
     // 4. Guardar en Base de Datos Local
     await _dbHelper.insertApus(apusWithProject);
 
-    return ApuExtractionResult(capitulos: savedCapitulos, apus: apusWithProject, insumos: const []);
+    return ApuExtractionResult(
+      capitulos: savedCapitulos,
+      apus: apusWithProject,
+      insumos: const [],
+      projectId: projectId,
+    );
   }
 
   static ApuExtractionResult extractApusFromBytes(List<int> bytes) {

@@ -4,9 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/features/apu_loader/providers/apu_provider.dart';
 import 'package:budget_analyzer/core/providers/project_providers.dart';
 import 'package:budget_analyzer/domain/models/project.dart';
+import 'package:budget_analyzer/features/apu_loader/ui/widgets/project_forms.dart';
 
-class ApuLoaderScreen extends ConsumerWidget {
-  const ApuLoaderScreen({super.key});
+class ProjectManagementScreen extends ConsumerWidget {
+  const ProjectManagementScreen({super.key});
 
   void _showProjectNameDialog(BuildContext context, WidgetRef ref, ApuLoaderNotifier notifier) {
     final textController = TextEditingController();
@@ -20,7 +21,7 @@ class ApuLoaderScreen extends ConsumerWidget {
             children: [
               Icon(Icons.create_new_folder, color: Colors.blueAccent),
               SizedBox(width: 8),
-              Text('Nuevo Proyecto'),
+              Text('Nuevo Proyecto (Importar Excel)'),
             ],
           ),
           content: Form(
@@ -84,7 +85,7 @@ class ApuLoaderScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gestión de Presupuestos (APUs)'),
+        title: const Text('Gestión de Proyecto'),
         centerTitle: true,
         elevation: 2,
       ),
@@ -105,14 +106,25 @@ class ApuLoaderScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(Icons.business_center, color: Colors.blueAccent),
-                        SizedBox(width: 8),
-                        Text(
-                          'Proyecto Seleccionado',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        const Row(
+                          children: [
+                            Icon(Icons.business_center, color: Colors.blueAccent),
+                            SizedBox(width: 8),
+                            Text(
+                              'Proyecto Seleccionado',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ],
                         ),
+                        if (activeProject != null)
+                          TextButton.icon(
+                            onPressed: () => showCreateCapituloDialog(context, activeProject.id!, notifier),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Añadir Capítulo'),
+                          )
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -123,7 +135,7 @@ class ApuLoaderScreen extends ConsumerWidget {
                       )
                     else
                       const Text(
-                        'Ninguno. ¡Por favor selecciona o carga un proyecto!',
+                        'Ninguno. ¡Por favor selecciona o crea un proyecto!',
                         style: TextStyle(fontSize: 15, fontStyle: FontStyle.italic, color: Colors.black54),
                       ),
                     const SizedBox(height: 16),
@@ -166,21 +178,45 @@ class ApuLoaderScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             
-            // Botón de Carga de Excel
-            ElevatedButton.icon(
-              onPressed: state.isLoading
-                  ? null
-                  : () => _showProjectNameDialog(context, ref, notifier),
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Importar Nuevo Presupuesto (.xlsx)'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.blueAccent,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+            // Botones de Carga y Creación de Proyecto
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: state.isLoading
+                        ? null
+                        : () => _showProjectNameDialog(context, ref, notifier),
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Importar\nExcel'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.blueAccent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: state.isLoading
+                        ? null
+                        : () => showCreateProjectDialog(context, ref, notifier),
+                    icon: const Icon(Icons.add_business),
+                    label: const Text('Crear\nManual'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             
@@ -192,7 +228,7 @@ class ApuLoaderScreen extends ConsumerWidget {
                     children: [
                       CircularProgressIndicator(),
                       SizedBox(height: 12),
-                      Text('Procesando hojas de presupuesto y memorias...'),
+                      Text('Procesando datos...'),
                     ],
                   ),
                 ),
@@ -210,7 +246,7 @@ class ApuLoaderScreen extends ConsumerWidget {
                   style: const TextStyle(color: Colors.red),
                 ),
               )
-            else if (state.apusCargados.isNotEmpty)
+            else if (state.apusCargados.isNotEmpty || state.capitulosCargados.isNotEmpty)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,7 +264,7 @@ class ApuLoaderScreen extends ConsumerWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              '¡Presupuesto activo cargado! Se encontraron ${state.apusCargados.length} APUs.',
+                              '¡Presupuesto activo! ${state.capitulosCargados.length} capítulos y ${state.apusCargados.length} APUs.',
                               style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
                             ),
                           ),
@@ -237,7 +273,7 @@ class ApuLoaderScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'APUs del Proyecto:',
+                      'Detalle del Proyecto:',
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
@@ -254,24 +290,31 @@ class ApuLoaderScreen extends ConsumerWidget {
                                 child: ExpansionTile(
                                   title: Text('${cap.numero}. ${cap.nombre}', style: const TextStyle(fontWeight: FontWeight.bold)),
                                   subtitle: Text('${apusCapitulo.length} APUs'),
-                                  children: apusCapitulo.map((apu) {
-                                    final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
-                                    return ListTile(
-                                      leading: CircleAvatar(
-                                        backgroundColor: Colors.blueAccent.withValues(alpha: 0.1),
-                                        child: Text(
-                                          apu.codigo,
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                  children: [
+                                    ...apusCapitulo.map((apu) {
+                                      final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
+                                      return ListTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: Colors.blueAccent.withValues(alpha: 0.1),
+                                          child: Text(
+                                            apu.codigo,
+                                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueAccent),
+                                          ),
                                         ),
-                                      ),
-                                      title: Text(apu.nombre),
-                                      subtitle: Text('Cantidad: ${formatQuantity(apu.cantidad)} ${apu.unidad}'),
-                                      trailing: Text(
-                                        '\$${formatCurrency(unitPrice)}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                    );
-                                  }).toList(),
+                                        title: Text(apu.nombre),
+                                        subtitle: Text('Cantidad: ${formatQuantity(apu.cantidad)} ${apu.unidad}'),
+                                        trailing: Text(
+                                          '\$${formatCurrency(unitPrice)}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      );
+                                    }),
+                                    ListTile(
+                                      leading: const Icon(Icons.add_circle_outline, color: Colors.green),
+                                      title: const Text('Añadir Actividad', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                                      onTap: () => showCreateActivityDialog(context, cap.id!, notifier),
+                                    )
+                                  ],
                                 ),
                               );
                             },

@@ -21,21 +21,20 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
     if (qty == null || qty <= 0) return;
 
     final repo = ref.read(evmRepositoryProvider);
-    final drafts = ref.read(draftPurchasesProvider)[_selectedApuId!] ?? [];
     
-    await repo.saveCutRecord(_selectedApuId!, qty, DateTime.now(), drafts);
+    // Las compras ya están guardadas en la BD en el corte abierto actual,
+    // así que solo mandamos la lista vacía para no añadir nuevas, sino
+    // simplemente cerrar el corte con el nuevo activityQuantity.
+    await repo.saveCutRecord(_selectedApuId!, qty, DateTime.now(), []);
 
-    // Limpiar borrador y refrescar
-    ref.read(draftPurchasesProvider.notifier).clearPurchases(_selectedApuId!);
     _qtyController.clear();
     
     ref.invalidate(apuMetricsProvider(_selectedApuId!));
-    ref.invalidate(apuStockProvider(_selectedApuId!));
-    ref.invalidate(sharedStockProvider);
+    ref.invalidate(openCutPurchasesProvider(_selectedApuId!));
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Avance físico registrado correctamente')),
+        const SnackBar(content: Text('Avance físico registrado y corte cerrado correctamente')),
       );
       setState(() {
         _selectedApuId = null;
@@ -47,13 +46,19 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
   Widget build(BuildContext context) {
     final apusAsync = ref.watch(apusListProvider);
     final capitulosAsync = ref.watch(capitulosListProvider);
-    final drafts = _selectedApuId != null ? (ref.watch(draftPurchasesProvider)[_selectedApuId!] ?? []) : [];
     
+    // Obtener los gastos ya registrados para este corte abierto
+    final openPurchasesAsync = _selectedApuId != null 
+        ? ref.watch(openCutPurchasesProvider(_selectedApuId!)) 
+        : const AsyncValue.data(<Map<String, dynamic>>[]);
+        
+    final purchases = openPurchasesAsync.value ?? [];
+
     double insumosCost = 0.0;
-    for (var draft in drafts) {
-      final p = draft['realPrice'] as double;
-      final q = draft['consumedQuantity'] as double;
-      insumosCost += (p * q);
+    for (var p in purchases) {
+      final price = p['realPrice'] as double;
+      final q = p['consumedQuantity'] as double;
+      insumosCost += (price * q);
     }
 
     return Scaffold(
@@ -118,28 +123,72 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
                   ),
               const SizedBox(height: 20),
               if (_selectedApuId != null) ...[
-                Card(
-                  color: drafts.isEmpty ? Colors.orange.shade50 : Colors.green.shade50,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Resumen de Almacén para el Corte:',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: drafts.isEmpty ? Colors.orange.shade800 : Colors.green.shade800),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('${drafts.length} compras preparadas.'),
-                        Text('Subtotal Costo Insumos: \$${formatCurrency(insumosCost)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        if (drafts.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8.0),
-                            child: Text('Nota: Puedes cerrar el corte con 0 compras si solo hubo avance, o ve a Almacén para agregar compras.', style: TextStyle(fontStyle: FontStyle.italic)),
+                Builder(
+                  builder: (context) {
+                    final selectedApu = apus.firstWhere((a) => a['id'] == _selectedApuId, orElse: () => <String, dynamic>{});
+                    final budgetedQty = selectedApu['total_quantity'] as double? ?? 0.0;
+                    final unitMeasure = selectedApu['unit_measure'] as String? ?? '';
+                    
+                    final metricsAsync = ref.watch(apuMetricsProvider(_selectedApuId!));
+                    
+                    return metricsAsync.when(
+                      data: (metrics) {
+                        double previousProgress = 0.0;
+                        if (metrics != null) {
+                          for (var cut in metrics.evRecords) {
+                            previousProgress += (cut['activityQuantity'] as num? ?? 0).toDouble();
+                          }
+                        }
+                        
+                        return Card(
+                          color: Colors.blue.shade50,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Información de la Actividad:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                                const SizedBox(height: 8),
+                                Text('Cantidad Presupuestada: ${formatQuantity(budgetedQty)} $unitMeasure'),
+                                Text('Avance Previo Acumulado: ${formatQuantity(previousProgress)} $unitMeasure'),
+                                Text('Por Ejecutar: ${formatQuantity(budgetedQty - previousProgress > 0 ? budgetedQty - previousProgress : 0)} $unitMeasure'),
+                              ],
+                            ),
                           ),
-                      ],
+                        );
+                      },
+                      loading: () => const CircularProgressIndicator(),
+                      error: (err, stack) => Text('Error: $err'),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                openPurchasesAsync.when(
+                  data: (purchasesList) => Card(
+                    color: purchasesList.isEmpty ? Colors.orange.shade50 : Colors.green.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Resumen de Gastos Acumulados para el Corte:',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: purchasesList.isEmpty ? Colors.orange.shade800 : Colors.green.shade800),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('${purchasesList.length} gastos acumulados.'),
+                          Text('Subtotal Costo Insumos: \$${formatCurrency(insumosCost)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          if (purchasesList.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8.0),
+                              child: Text('Nota: Puedes cerrar el corte sin gastos si solo hubo avance, o ve a Registrar Gastos para añadir insumos.', style: TextStyle(fontStyle: FontStyle.italic)),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
+                  loading: () => const CircularProgressIndicator(),
+                  error: (err, stack) => Text('Error al cargar gastos: $err'),
                 ),
                 const SizedBox(height: 20),
                 TextFormField(

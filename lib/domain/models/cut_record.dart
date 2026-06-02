@@ -1,5 +1,5 @@
 class CutRecord {
-  final String id;
+  final int? id;
   final int activityId;
   final int cutNumber;
   final double activityQuantity;
@@ -7,7 +7,7 @@ class CutRecord {
   final List<CutInsumoPurchase> purchases;
 
   CutRecord({
-    required this.id,
+    this.id,
     required this.activityId,
     required this.cutNumber,
     required this.activityQuantity,
@@ -17,7 +17,7 @@ class CutRecord {
 
   factory CutRecord.fromMap(Map<String, dynamic> map, {List<CutInsumoPurchase> purchases = const []}) {
     return CutRecord(
-      id: map['id'] as String,
+      id: map['id'] as int?,
       activityId: map['activityId'] as int,
       cutNumber: map['cutNumber'] as int,
       activityQuantity: (map['activityQuantity'] as num).toDouble(),
@@ -28,7 +28,7 @@ class CutRecord {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'activityId': activityId,
       'cutNumber': cutNumber,
       'activityQuantity': activityQuantity,
@@ -38,16 +38,18 @@ class CutRecord {
 }
 
 class CutInsumoPurchase {
-  final String id;
-  final String cutRecordId;
+  final int? id;
+  final int cutRecordId;
+  final int? insumoId;
   final String insumoDescription;
   final double realPrice;
   final double purchasedQuantity;
   final double consumedQuantity;
 
   CutInsumoPurchase({
-    required this.id,
+    this.id,
     required this.cutRecordId,
+    this.insumoId,
     required this.insumoDescription,
     required this.realPrice,
     required this.purchasedQuantity,
@@ -58,8 +60,9 @@ class CutInsumoPurchase {
 
   factory CutInsumoPurchase.fromMap(Map<String, dynamic> map) {
     return CutInsumoPurchase(
-      id: map['id'] as String,
-      cutRecordId: map['cutRecordId'] as String,
+      id: map['id'] as int?,
+      cutRecordId: map['cutRecordId'] as int,
+      insumoId: map['insumoId'] as int?,
       insumoDescription: map['insumoDescription'] as String,
       realPrice: (map['realPrice'] as num).toDouble(),
       purchasedQuantity: (map['purchasedQuantity'] as num).toDouble(),
@@ -69,8 +72,9 @@ class CutInsumoPurchase {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'cutRecordId': cutRecordId,
+      if (insumoId != null) 'insumoId': insumoId,
       'insumoDescription': insumoDescription,
       'realPrice': realPrice,
       'purchasedQuantity': purchasedQuantity,

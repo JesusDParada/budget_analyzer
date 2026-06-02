@@ -51,7 +51,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
     List<Map<String, dynamic>> cutRecordsUI = [];
 
     for (var cut in cutRecords) {
-      final String cutId = cut['id'];
+      final int cutId = cut['id'] as int;
       final double cutActQty = cut['activityQuantity'] as double;
       final int cutNumber = cut['cutNumber'] as int;
       final String cutDate = cut['date'] as String;
@@ -101,30 +101,113 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
 
   @override
   Future<void> saveCutRecord(int activityId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases) async {
-    final existingCuts = await _dbHelper.getCutRecordsForActivity(activityId);
-    final int nextCutNumber = existingCuts.length + 1;
-    final String cutId = DateTime.now().millisecondsSinceEpoch.toString();
+    final openCut = await _dbHelper.getOpenCutRecordForActivity(activityId);
 
-    final cutMap = {
-      'id': cutId,
-      'activityId': activityId,
-      'cutNumber': nextCutNumber,
-      'activityQuantity': activityQuantity,
-      'date': date.toIso8601String(),
+    final apuInsumos = await getApuInsumos(activityId);
+    final insumoIdMap = {
+      for (var i in apuInsumos)
+        i['descripcion']?.toString().toLowerCase().trim(): i['id'] as int?
     };
 
     List<Map<String, dynamic>> purchaseMaps = purchases.map((p) {
+      final desc = p['insumoDescription']?.toString() ?? '';
+      final insumoId = insumoIdMap[desc.toLowerCase().trim()];
       return {
-        'id': '${DateTime.now().microsecondsSinceEpoch}_${p.hashCode}',
-        'cutRecordId': cutId,
-        'insumoDescription': p['insumoDescription'],
+        if (insumoId != null) 'insumoId': insumoId,
+        'insumoDescription': desc,
         'realPrice': p['realPrice'],
         'purchasedQuantity': p['purchasedQuantity'],
         'consumedQuantity': p['consumedQuantity'],
       };
     }).toList();
 
-    await _dbHelper.insertCutRecord(cutMap, purchaseMaps);
+    if (openCut != null) {
+      final updatedCut = Map<String, dynamic>.from(openCut);
+      updatedCut['activityQuantity'] = activityQuantity;
+      updatedCut['date'] = date.toIso8601String();
+      updatedCut['isClosed'] = 1;
+      await _dbHelper.updateCutRecord(openCut['id'] as int, updatedCut);
+
+      for (var pMap in purchaseMaps) {
+        await _dbHelper.insertPurchaseIntoCut(openCut['id'] as int, pMap);
+      }
+    } else {
+      final existingCuts = await _dbHelper.getCutRecordsForActivity(activityId);
+      final int nextCutNumber = existingCuts.length + 1;
+      final cutMap = {
+        'activityId': activityId,
+        'cutNumber': nextCutNumber,
+        'activityQuantity': activityQuantity,
+        'date': date.toIso8601String(),
+        'isClosed': 1,
+      };
+      await _dbHelper.insertCutRecord(cutMap, purchaseMaps);
+    }
+  }
+
+  @override
+  Future<void> saveGlobalExpense(String insumoDesc, double totalRealPrice, double totalConsumedQty, List<int> selectedActivityIds) async {
+    if (selectedActivityIds.isEmpty) return;
+
+    final allApus = await _dbHelper.getAllApus();
+    double totalBac = 0.0;
+    final selectedApus = allApus.where((a) => selectedActivityIds.contains(a.id)).toList();
+
+    for (var apu in selectedApus) {
+      final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
+      final totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
+      final bac = apu.bac > 0 ? apu.bac : (unitPrice * totalQty);
+      totalBac += bac;
+    }
+
+    if (totalBac <= 0) totalBac = 1.0;
+
+    for (var apu in selectedApus) {
+      final unitPrice = apu.valorUnitario > 0 ? apu.valorUnitario : apu.costoTotal;
+      final totalQty = apu.cantidad > 0 ? apu.cantidad : defaultTotalQuantity;
+      final bac = apu.bac > 0 ? apu.bac : (unitPrice * totalQty);
+
+      final double fraction = bac / totalBac;
+      final double apportionedQty = totalConsumedQty * fraction;
+
+      if (apportionedQty <= 0) continue;
+
+      var openCut = await _dbHelper.getOpenCutRecordForActivity(apu.id!);
+      int cutId;
+      if (openCut == null) {
+        final existingCuts = await _dbHelper.getCutRecordsForActivity(apu.id!);
+        final int nextCutNumber = existingCuts.length + 1;
+        final cutMap = {
+          'activityId': apu.id,
+          'cutNumber': nextCutNumber,
+          'activityQuantity': 0.0,
+          'date': DateTime.now().toIso8601String(),
+          'isClosed': 0,
+        };
+        cutId = await _dbHelper.insertCutRecord(cutMap, []);
+      } else {
+        cutId = openCut['id'] as int;
+      }
+
+      final purchaseMap = <String, dynamic>{
+        'insumoDescription': insumoDesc,
+        'realPrice': totalRealPrice,
+        'purchasedQuantity': 0.0,
+        'consumedQuantity': apportionedQty,
+      };
+
+      final insumoIdMap = {
+        for (var i in apu.insumos)
+          i.descripcion.toLowerCase().trim(): i.id
+      };
+      
+      final insumoId = insumoIdMap[insumoDesc.toLowerCase().trim()];
+      if (insumoId != null) {
+        purchaseMap['insumoId'] = insumoId;
+      }
+
+      await _dbHelper.insertPurchaseIntoCut(cutId, purchaseMap);
+    }
   }
 
   @override

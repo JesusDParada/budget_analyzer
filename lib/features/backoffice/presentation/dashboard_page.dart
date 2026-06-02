@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:budget_analyzer/core/utils/number_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/core/providers/evm_providers.dart';
+import 'package:budget_analyzer/core/providers/project_providers.dart';
 
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
@@ -10,9 +11,10 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final apusAsync = ref.watch(apusListProvider);
     final capitulosAsync = ref.watch(capitulosListProvider);
+    final activeProject = ref.watch(activeProjectProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard EVM')),
+      appBar: AppBar(title: Text(activeProject != null ? 'Dashboard: ${activeProject.name}' : 'Dashboard EVM')),
       body: apusAsync.when(
         data: (apus) {
           if (apus.isEmpty) {

@@ -13,6 +13,9 @@ abstract class IEvmRepository {
   /// Guarda un corte temporal completo (almacén + progreso vinculados)
   Future<void> saveCutRecord(int activityId, double activityQuantity, DateTime date, List<Map<String, dynamic>> purchases);
 
+  /// Guarda un gasto global de insumo distribuyéndolo proporcionalmente en base al BAC
+  Future<void> saveGlobalExpense(String insumoDesc, double totalRealPrice, double totalConsumedQty, List<int> selectedActivityIds);
+
   /// Obtiene los insumos de la APU (desde detalleJson o bd) para mostrar en el formulario
   Future<List<Map<String, dynamic>>> getApuInsumos(int activityId);
   

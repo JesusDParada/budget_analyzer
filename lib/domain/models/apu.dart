@@ -5,7 +5,6 @@ class Apu {
   final String codigo;
   final String nombre;
   final String unidad;
-  final int? projectId;
   final double cantidad;
   final double valorUnitario;
   final double bac;
@@ -19,7 +18,6 @@ class Apu {
     required this.codigo,
     required this.nombre,
     required this.unidad,
-    this.projectId,
     this.cantidad = 0.0,
     this.valorUnitario = 0.0,
     this.bac = 0.0,
@@ -37,7 +35,6 @@ class Apu {
       codigo: map['codigo'] as String,
       nombre: map['nombre'] as String,
       unidad: map['unidad'] as String,
-      projectId: map['projectId'] as int?,
       cantidad: (map['cantidad'] as num?)?.toDouble() ?? 0.0,
       valorUnitario: (map['valorUnitario'] as num?)?.toDouble() ?? 0.0,
       bac: (map['bac'] as num?)?.toDouble() ?? 0.0,
@@ -54,7 +51,6 @@ class Apu {
       'codigo': codigo,
       'nombre': nombre,
       'unidad': unidad,
-      if (projectId != null) 'projectId': projectId,
       'cantidad': cantidad,
       'valorUnitario': valorUnitario,
       'bac': bac,
