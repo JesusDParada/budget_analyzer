@@ -134,10 +134,8 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
                     return metricsAsync.when(
                       data: (metrics) {
                         double previousProgress = 0.0;
-                        if (metrics != null) {
-                          for (var cut in metrics.evRecords) {
-                            previousProgress += (cut['activityQuantity'] as num? ?? 0).toDouble();
-                          }
+                        for (var cut in metrics.evRecords) {
+                          previousProgress += (cut['activityQuantity'] as num? ?? 0).toDouble();
                         }
                         
                         return Card(
