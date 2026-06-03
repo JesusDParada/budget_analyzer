@@ -65,12 +65,15 @@ class _GlobalExpenseEntryPageState extends ConsumerState<GlobalExpenseEntryPage>
 
     final repo = ref.read(evmRepositoryProvider);
     
-    for (var insumo in _insumosList) {
+    final insumosToProcess = List.from(_insumosList);
+    final activitiesToProcess = _selectedActivities.toList();
+
+    for (var insumo in insumosToProcess) {
       await repo.saveGlobalExpense(
         insumo.description,
         insumo.cost,
         insumo.quantity,
-        _selectedActivities.toList(),
+        activitiesToProcess,
       );
     }
 
@@ -81,13 +84,25 @@ class _GlobalExpenseEntryPageState extends ConsumerState<GlobalExpenseEntryPage>
     }
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gastos registrados exitosamente en cortes abiertos.')),
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('¡Éxito!'),
+          content: const Text('La información se cargó correctamente a la base de datos.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Aceptar'),
+            ),
+          ],
+        ),
       );
-      setState(() {
-        _insumosList.clear();
-        _selectedActivities.clear();
-      });
+      if (mounted) {
+        setState(() {
+          _insumosList.clear();
+          _selectedActivities.clear();
+        });
+      }
     }
   }
 
@@ -217,8 +232,30 @@ class _GlobalExpenseEntryPageState extends ConsumerState<GlobalExpenseEntryPage>
                             final capApus = apus.where((a) => a['capituloId'] == cap.id).toList();
                             if (capApus.isEmpty) return const SizedBox.shrink();
 
+                            final allSelected = capApus.every((a) => _selectedActivities.contains(a['id']));
                             return ExpansionTile(
-                              title: Text('${cap.numero}. ${cap.nombre}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              title: Row(
+                                children: [
+                                  Expanded(child: Text('${cap.numero}. ${cap.nombre}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      setState(() {
+                                        if (allSelected) {
+                                          for (var a in capApus) {
+                                            _selectedActivities.remove(a['id']);
+                                          }
+                                        } else {
+                                          for (var a in capApus) {
+                                            _selectedActivities.add(a['id']);
+                                          }
+                                        }
+                                      });
+                                    },
+                                    icon: Icon(allSelected ? Icons.deselect : Icons.select_all, size: 18),
+                                    label: Text(allSelected ? 'Deseleccionar' : 'Seleccionar Todo'),
+                                  ),
+                                ],
+                              ),
                               initiallyExpanded: true,
                               children: capApus.map((apu) {
                                 final id = apu['id'] as int;

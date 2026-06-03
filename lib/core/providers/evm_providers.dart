@@ -1,14 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/domain/repositories/i_evm_repository.dart';
-import 'package:budget_analyzer/data/repositories/local_db_evm_repository_impl.dart';
+import 'package:budget_analyzer/data/repositories/supabase_evm_repository_impl.dart';
 import 'package:budget_analyzer/domain/models/evm_metrics.dart';
 import 'package:budget_analyzer/core/providers/project_providers.dart';
-import 'package:budget_analyzer/data/local_db/database_helper.dart';
+import 'package:budget_analyzer/data/supabase/supabase_helper.dart';
 import 'package:budget_analyzer/domain/models/capitulo.dart';
 
 // Provider global para el repositorio
 final evmRepositoryProvider = Provider<IEvmRepository>((ref) {
-  return LocalDbEvmRepositoryImpl();
+  return SupabaseEvmRepositoryImpl();
 });
 
 // Provider para la lista de APUs de forma reactiva al proyecto seleccionado
@@ -22,9 +22,9 @@ final apusListProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async 
 final capitulosListProvider = FutureProvider<List<Capitulo>>((ref) async {
   final activeProject = ref.watch(activeProjectProvider);
   if (activeProject == null) {
-    return await DatabaseHelper.instance.getAllCapitulos();
+    return await SupabaseHelper.instance.getAllCapitulos();
   }
-  return await DatabaseHelper.instance.getCapitulosByProject(activeProject.id!);
+  return await SupabaseHelper.instance.getCapitulosByProject(activeProject.id!);
 });
 
 // Family Provider para las métricas de un APU específico
@@ -241,7 +241,7 @@ final sharedStockProvider = FutureProvider.family<InsumoStock, String>((ref, ins
 // Notifier para el borrador de compras por APU en el corte actual (Eliminado por guardado directo)
 // Se reemplaza por un FutureProvider que consulta las compras del corte abierto en la BD.
 final openCutPurchasesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, activityId) async {
-  final dbHelper = DatabaseHelper.instance;
+  final dbHelper = SupabaseHelper.instance;
   final openCut = await dbHelper.getOpenCutRecordForActivity(activityId);
   if (openCut == null) return [];
   return await dbHelper.getPurchasesForCut(openCut['id'] as int);

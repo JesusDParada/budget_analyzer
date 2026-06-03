@@ -1,9 +1,9 @@
 import 'package:budget_analyzer/domain/models/evm_metrics.dart';
 import 'package:budget_analyzer/domain/repositories/i_evm_repository.dart';
-import 'package:budget_analyzer/data/local_db/database_helper.dart';
+import 'package:budget_analyzer/data/supabase/supabase_helper.dart';
 
-class LocalDbEvmRepositoryImpl implements IEvmRepository {
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+class SupabaseEvmRepositoryImpl implements IEvmRepository {
+  final SupabaseHelper _dbHelper = SupabaseHelper.instance;
 
   final double defaultTotalQuantity = 100.0;
 
@@ -52,7 +52,7 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
 
     for (var cut in cutRecords) {
       final int cutId = cut['id'] as int;
-      final double cutActQty = cut['activityQuantity'] as double;
+      final double cutActQty = (cut['activityQuantity'] as num).toDouble();
       final int cutNumber = cut['cutNumber'] as int;
       final String cutDate = cut['date'] as String;
       
@@ -62,8 +62,8 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
       double cutInsumosCost = 0.0;
       
       for (var p in purchases) {
-        final double realPrice = p['realPrice'] as double;
-        final double consumedQty = p['consumedQuantity'] as double;
+        final double realPrice = (p['realPrice'] as num).toDouble();
+        final double consumedQty = (p['consumedQuantity'] as num).toDouble();
         cutInsumosCost += (realPrice * consumedQty);
       }
       
@@ -218,7 +218,6 @@ class LocalDbEvmRepositoryImpl implements IEvmRepository {
       orElse: () => throw Exception('Activity no encontrada: $activityId'),
     );
 
-    // Now returning the insumos directly from the unified database table!
     return apu.insumos.map((i) => i.toMap()).toList();
   }
 

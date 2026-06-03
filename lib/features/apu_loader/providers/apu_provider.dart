@@ -3,13 +3,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:budget_analyzer/domain/models/apu.dart';
 import 'package:budget_analyzer/domain/models/project.dart';
 import 'package:budget_analyzer/domain/models/capitulo.dart';
-import 'package:budget_analyzer/data/repositories/excel_apu_repository.dart';
-import 'package:budget_analyzer/core/providers/project_providers.dart';
-import 'package:budget_analyzer/data/local_db/database_helper.dart';
-import 'package:budget_analyzer/domain/models/insumo.dart';
 
-final apuRepositoryProvider = Provider<ExcelApuRepository>((ref) {
-  return ExcelApuRepository();
+import 'package:budget_analyzer/core/providers/project_providers.dart';
+import 'package:budget_analyzer/data/supabase/supabase_helper.dart';
+import 'package:budget_analyzer/domain/models/insumo.dart';
+import 'package:budget_analyzer/data/repositories/supabase_apu_repository.dart';
+
+final apuRepositoryProvider = Provider<SupabaseApuRepository>((ref) {
+  return SupabaseApuRepository();
 });
 
 class ApuLoaderState {
@@ -41,7 +42,7 @@ class ApuLoaderState {
 }
 
 class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
-  late ExcelApuRepository _repository;
+  late SupabaseApuRepository _repository;
 
   @override
   ApuLoaderState build() {
@@ -63,7 +64,7 @@ class ApuLoaderNotifier extends Notifier<ApuLoaderState> {
           capitulos = await _repository.getCapitulosByProject(activeProject.id!);
       } else {
           apus = await _repository.getAllApus();
-          capitulos = await DatabaseHelper.instance.getAllCapitulos();
+          capitulos = await SupabaseHelper.instance.getAllCapitulos();
       }
           
       state = state.copyWith(isLoading: false, apusCargados: apus, capitulosCargados: capitulos);

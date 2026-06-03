@@ -1,3 +1,4 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/features/backoffice/presentation/dashboard_page.dart';
@@ -5,7 +6,14 @@ import 'package:budget_analyzer/features/warehouse/presentation/global_expense_e
 import 'package:budget_analyzer/features/resident/presentation/progress_entry_page.dart';
 import 'package:budget_analyzer/features/apu_loader/ui/project_management_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  await Supabase.initialize(
+    url: 'https://sfzmsbqybycyjenobnrq.supabase.co',
+    anonKey: 'sb_publishable_pjGO1OB-z-Oe4hrez2q8aw_0KLW30ka',
+  );
+
   runApp(
     // ProviderScope es necesario para usar Riverpod, Hola mundoo :)
     const ProviderScope(child: MyApp()),

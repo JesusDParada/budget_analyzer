@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/domain/models/project.dart';
-import 'package:budget_analyzer/data/local_db/database_helper.dart';
+import 'package:budget_analyzer/data/supabase/supabase_helper.dart';
 
 class ActiveProjectNotifier extends Notifier<Project?> {
   @override
@@ -18,5 +18,5 @@ final activeProjectProvider = NotifierProvider<ActiveProjectNotifier, Project?>(
 });
 
 final projectListProvider = FutureProvider<List<Project>>((ref) async {
-  return await DatabaseHelper.instance.getAllProjects();
+  return await SupabaseHelper.instance.getAllProjects();
 });

@@ -8,12 +8,12 @@ import 'package:budget_analyzer/domain/models/apu.dart';
 import 'package:budget_analyzer/domain/models/insumo.dart';
 import 'package:budget_analyzer/domain/models/capitulo.dart';
 import 'package:budget_analyzer/domain/repositories/i_apu_repository.dart';
-import 'package:budget_analyzer/data/local_db/database_helper.dart';
+import 'package:budget_analyzer/data/supabase/supabase_helper.dart';
 import 'package:budget_analyzer/core/utils/xlsx_cached_value_reader.dart';
 import 'package:budget_analyzer/core/utils/apu_insumos_parser.dart';
 
 class ExcelApuRepository implements IApuRepository {
-  final DatabaseHelper _dbHelper = DatabaseHelper.instance;
+  final SupabaseHelper _dbHelper = SupabaseHelper.instance;
 
   @override
   Future<List<Apu>> getAllApus() async {
