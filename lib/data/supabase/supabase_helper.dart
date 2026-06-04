@@ -256,9 +256,12 @@ class SupabaseHelper {
   }
 
   Future<void> updateCutRecord(int id, Map<String, dynamic> cutMap) async {
+    final updateData = Map<String, dynamic>.from(cutMap);
+    updateData.remove('id');
+    
     await _supabase
         .from('cut_records')
-        .update(cutMap)
+        .update(updateData)
         .eq('id', id);
   }
 }

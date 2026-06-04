@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:budget_analyzer/domain/repositories/i_evm_repository.dart';
 import 'package:budget_analyzer/data/repositories/supabase_evm_repository_impl.dart';
 import 'package:budget_analyzer/domain/models/evm_metrics.dart';
+import 'package:budget_analyzer/domain/models/chapter_metrics.dart';
 import 'package:budget_analyzer/core/providers/project_providers.dart';
 import 'package:budget_analyzer/data/supabase/supabase_helper.dart';
 import 'package:budget_analyzer/domain/models/capitulo.dart';
@@ -31,6 +32,47 @@ final capitulosListProvider = FutureProvider<List<Capitulo>>((ref) async {
 final apuMetricsProvider = FutureProvider.family<EvmMetrics, int>((ref, activityId) async {
   final repository = ref.watch(evmRepositoryProvider);
   return repository.calculateMetricsForApu(activityId);
+});
+
+/// Provider que agrega las métricas EVM de todas las APUs de un capítulo.
+/// Recibe el ID del capítulo y usa los APUs listados para computar sumas y promedios.
+final chapterMetricsProvider = FutureProvider.family<ChapterMetrics, int>((ref, capituloId) async {
+  final repository = ref.watch(evmRepositoryProvider);
+  final apus = await ref.watch(apusListProvider.future);
+  final apusDelCapitulo = apus.where((a) => a['capituloId'] == capituloId).toList();
+
+  double totalBac = 0;
+  double totalAc = 0;
+  double totalEv = 0;
+  double totalEac = 0;
+  double totalEtc = 0;
+  double sumCpi = 0;
+  int cpiCount = 0;
+
+  for (final apu in apusDelCapitulo) {
+    final metrics = await repository.calculateMetricsForApu(apu['id'] as int);
+    totalBac += metrics.bac;
+    totalAc += metrics.ac;
+    totalEv += metrics.ev;
+    totalEac += metrics.eac;
+    totalEtc += metrics.etc;
+    // Solo promediar CPI de actividades que tienen datos (CPI finito y AC > 0)
+    if (metrics.cpi.isFinite && metrics.ac > 0) {
+      sumCpi += metrics.cpi;
+      cpiCount++;
+    }
+  }
+
+  return ChapterMetrics(
+    capituloId: capituloId,
+    bac: totalBac,
+    ac: totalAc,
+    ev: totalEv,
+    eac: totalEac,
+    etc: totalEtc,
+    cpiPromedio: cpiCount > 0 ? sumCpi / cpiCount : 0,
+    apuCount: apusDelCapitulo.length,
+  );
 });
 
 // Provider para obtener insumos de una APU

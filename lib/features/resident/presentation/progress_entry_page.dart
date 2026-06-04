@@ -56,8 +56,8 @@ class _ProgressEntryPageState extends ConsumerState<ProgressEntryPage> {
 
     double insumosCost = 0.0;
     for (var p in purchases) {
-      final price = p['realPrice'] as double;
-      final q = p['consumedQuantity'] as double;
+      final price = (p['realPrice'] as num).toDouble();
+      final q = (p['consumedQuantity'] as num).toDouble();
       insumosCost += (price * q);
     }
 

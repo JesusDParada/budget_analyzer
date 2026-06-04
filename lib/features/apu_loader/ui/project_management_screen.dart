@@ -280,8 +280,33 @@ class ProjectManagementScreen extends ConsumerWidget {
                     Expanded(
                       child: state.capitulosCargados.isNotEmpty 
                         ? ListView.builder(
-                            itemCount: state.capitulosCargados.length,
+                            itemCount: state.capitulosCargados.length + 1,
                             itemBuilder: (context, index) {
+                              // Último elemento: botón para añadir capítulo
+                              if (index == state.capitulosCargados.length) {
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  color: Colors.blueAccent.withValues(alpha: 0.05),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    side: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.3), style: BorderStyle.solid),
+                                  ),
+                                  child: ListTile(
+                                    leading: const Icon(Icons.add_circle, color: Colors.blueAccent),
+                                    title: const Text(
+                                      'Añadir Capítulo',
+                                      style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    subtitle: const Text('Crear un nuevo capítulo en este proyecto'),
+                                    onTap: () {
+                                      if (activeProject != null) {
+                                        showCreateCapituloDialog(context, activeProject.id!, notifier);
+                                      }
+                                    },
+                                  ),
+                                );
+                              }
+
                               final cap = state.capitulosCargados[index];
                               final apusCapitulo = state.apusCargados.where((a) => a.capituloId == cap.id).toList();
                               

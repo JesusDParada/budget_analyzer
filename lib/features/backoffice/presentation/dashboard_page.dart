@@ -23,7 +23,7 @@ class DashboardPage extends ConsumerWidget {
             );
           }
           
-          return capitulosAsync.when(
+           return capitulosAsync.when(
             data: (capitulos) {
                if (capitulos.isEmpty) {
                   return ListView.builder(
@@ -49,10 +49,16 @@ class DashboardPage extends ConsumerWidget {
                       child: ExpansionTile(
                         initiallyExpanded: true,
                         title: Text('${cap.numero}. ${cap.nombre}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        children: apusCapitulo.map((apu) => _ApuMetricsCard(
-                          activityId: apu['id'],
-                          apuName: '${apu['code']} - ${apu['description']}',
-                        )).toList(),
+                        children: [
+                          // Resumen de métricas del capítulo
+                          if (cap.id != null)
+                            _ChapterSummaryHeader(capituloId: cap.id!),
+                          // APUs individuales
+                          ...apusCapitulo.map((apu) => _ApuMetricsCard(
+                            activityId: apu['id'],
+                            apuName: '${apu['code']} - ${apu['description']}',
+                          )),
+                        ],
                       ),
                     );
                  },
@@ -208,6 +214,81 @@ class _ApuMetricsCard extends ConsumerWidget {
           padding: const EdgeInsets.all(16.0),
           child: Text('Error: $err'),
         ),
+      ),
+    );
+  }
+}
+
+class _ChapterSummaryHeader extends ConsumerWidget {
+  final int capituloId;
+
+  const _ChapterSummaryHeader({required this.capituloId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chapterAsync = ref.watch(chapterMetricsProvider(capituloId));
+
+    return chapterAsync.when(
+      data: (cm) {
+        final isGood = cm.cpiPromedio >= 1.0;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.blueGrey.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blueGrey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Resumen del Capítulo (${cm.apuCount} actividades)',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blueGrey),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('BAC: \$${formatCurrency(cm.bac)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('EV: \$${formatCurrency(cm.ev)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('AC: \$${formatCurrency(cm.ac)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Text('CPI Prom: ', style: TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        cm.cpiPromedio == 0 ? 'N/A' : cm.cpiPromedio.toStringAsFixed(2),
+                        style: TextStyle(
+                          color: cm.cpiPromedio == 0 ? Colors.grey : (isGood ? Colors.green : Colors.red),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text('EAC: \$${formatCurrency(cm.eac)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('ETC: \$${formatCurrency(cm.etc)}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () => const Padding(
+        padding: EdgeInsets.all(8.0),
+        child: Center(child: SizedBox(
+          width: 20, height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        )),
+      ),
+      error: (err, _) => Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Text('Error cargando resumen: $err', style: const TextStyle(color: Colors.red, fontSize: 12)),
       ),
     );
   }
