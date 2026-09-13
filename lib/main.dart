@@ -10,12 +10,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await Supabase.initialize(
-    url: 'https://sfzmsbqybycyjenobnrq.supabase.co',
-    anonKey: 'sb_publishable_pjGO1OB-z-Oe4hrez2q8aw_0KLW30ka',
+    url: '',
+    anonKey: '',
   );
 
   runApp(
-    // ProviderScope es necesario para usar Riverpod, Hola mundoo :)
+    
     const ProviderScope(child: MyApp()),
   );
 }
